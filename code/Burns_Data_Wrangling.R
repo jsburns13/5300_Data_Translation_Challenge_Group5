@@ -11,16 +11,29 @@ data <- data %>%
     TRUE ~ 0
   )) %>%
   mutate(date = ISOdate(YEAR,MONTH,1)) %>%
-  mutate(IND1950 = as.factor(IND1950)) %>%
   # https://cps.ipums.org/cps/codes/ind_2014_codes.shtml
-  mutate(Retail = as.factor(case_when(
-    IND1950 == "1190" | IND1950 == "5470" | IND1950 == "5580" | IND1950 == "5790" ~ 1,
-    TRUE ~ 0
-  )))
+  mutate(Industry = as.factor(case_when(
+    IND1990 > 000 & IND1990 <= 032 ~ "AGRICULTURE, FORESTRY, AND FISHERIES",
+    IND1990 >= 040 & IND1990 <= 050 ~ "MINING",
+    IND1990 == 060 ~ "CONSTRUCTION",
+    IND1990 >= 100 & IND1990 <= 392 ~ "MANUFACTURING",
+    IND1990 >= 400 & IND1990 <= 472 ~ "TRANSPORTATION, COMMUNICATIONS, AND OTHER PUBLIC UTILITIES",
+    IND1990 >= 500 & IND1990 <= 571 ~ "WHOLESALE TRADE",
+    IND1990 >= 580 & IND1990 <= 691 ~ "RETAIL TRADE",
+    IND1990 >= 700 & IND1990 <= 712 ~ "FINANCE, INSURANCE, AND REAL ESTATE",
+    IND1990 >= 721 & IND1990 <= 760 ~ "BUSINESS AND REPAIR SERVICES",
+    IND1990 >= 761 & IND1990 <= 791 ~ "PERSONAL SERVICES",
+    IND1990 >= 800 & IND1990 <= 810 ~ "ENTERTAINMENT AND RECREATION SERVICES",
+    IND1990 >= 812 & IND1990 <= 893 ~ "PROFESSIONAL AND RELATED SERVICES",
+    IND1990 >= 900 & IND1990 <= 932 ~ "PUBLIC ADMINISTRATION",
+    IND1990 >= 940 & IND1990 <= 998 ~ "ACTIVE DUTY MILITARY",
+    TRUE ~ "NIU"
+  ))) %>%
+  filter(Industry != "NIU" & Industry != "ACTIVE DUTY MILITARY")
 
 mean_data <- data %>%
-  group_by(Retail, date) %>%
+  group_by(Industry, date) %>%
   summarise(avg_employment = mean(Employment))
 
-ggplot(data = mean_data, aes(x=date, y=avg_employment, colour=Retail, group=Retail)) +
+ggplot(data = mean_data, aes(x=date, y=avg_employment, colour=Industry, group=Industry)) +
   geom_point() + geom_line()
