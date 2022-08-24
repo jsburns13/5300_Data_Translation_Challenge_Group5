@@ -1,0 +1,43 @@
+---
+title: "Q1_md"
+author: "Brad Stirling"
+date: "2022-08-24"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+```{r}
+library(fixest)
+library(tidyverse)
+library(vtable)
+```
+
+```{r}
+load("code/Q1_Data_Wrangling.RData")
+sumtable(data_agg_q1)
+```
+
+```{r}
+data_agg_q1 %>% ggplot(aes(date, monthly_employment)) +
+  geom_line(color = "dark blue") +
+  ggtitle("Retail Employment: April 2019 to February 2021") +
+  geom_vline(xintercept = as.Date("2020-02-01") - 0.5,
+             col = "orange",
+             linetype = "dashed"
+  ) +
+  annotate(geom = "text",
+           x = as.Date("2020-02-01") -50,
+           y = 3400,
+           label = "Lockdown",
+           color = "orange") +
+  xlab("Date (excludes March 2020)") +
+  ylab("Monthly Employment")
+```
+```{r}
+q1_m1 <-  data_agg_q1 %>% feols(monthly_employment ~ covid_era)
+etable(q1_m1)
+```
