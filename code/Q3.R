@@ -245,8 +245,7 @@ df <- df %>% mutate(Occupation = case_when(OCC1990 <= 200 ~ 'MANAGERIAL AND PROF
                                             OCC1990 <= 498 ~ 'FARMING, FORESTRY, AND FISHING OCCUPATIONS',
                                             OCC1990 <= 699 ~ 'PRECISION PRODUCTION, CRAFT, AND REPAIR OCCUPATIONS',
                                             OCC1990 <= 890 ~ 'OPERATORS, FABRICATORS, AND LABORERS',
-                                            OCC1990 == 905 ~ 'MILITARY OCCUPATIONS',
-                                            OCC1990 == 41 ~ 'part time', TRUE ~ 'NA'))
+                                            OCC1990 == 905 ~ 'MILITARY OCCUPATIONS', TRUE ~ 'NA'))
 
 #Check how's the employed, unemployed situation in different occupation 
 df_Employed_Occupation <- df %>% filter(Occupation != 'NA') %>% group_by(yearmo, Occupation) %>% summarise(Count = sum(Employed))
