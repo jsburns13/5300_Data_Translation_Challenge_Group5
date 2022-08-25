@@ -64,6 +64,7 @@ q1_data_month %>% ggplot(aes(x = month,
 
 ```{r}
 q1_m1 <-  q1_data %>% feols(monthly_employment ~ covid_era)
+
 etable(q1_m1)
 ```
 The retail industry saw a drop in monthly employment of 1,298 people post lockdown, a decrease of 25.8%. This was statistically significant at an alpha of 0.001. Thus, based on the model, it can be concluded that the lockdown had a negative impact on the health of the retail industry. 
