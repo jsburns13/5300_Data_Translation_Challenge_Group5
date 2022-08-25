@@ -264,3 +264,7 @@ ggplot(df_unemployed_experienced_Occupation, aes(x = yearmo, y = Count, col = Oc
 ggplot(df_unemployed_new_Occupation, aes(x = yearmo, y = Count, col = Occupation)) + geom_point() + 
   geom_smooth(method = 'lm') + geom_vline(xintercept = 202003) + ggtitle("Unemployed New worker-MARST")
 
+
+## EDA & Modeling
+
+
