@@ -1,5 +1,7 @@
 library(tidyverse)
 library(ipumsr)
+library(rdrobust)
+library(fixest)
 
 ddi <- read_ipums_ddi("data/cps_00004.xml")
 data <- read_ipums_micro(ddi)
@@ -11,6 +13,11 @@ data <- data %>%
     TRUE ~ 0
   )) %>%
   mutate(date = ISOdate(YEAR,MONTH,1)) %>%
+  mutate(running = as.numeric(difftime(date,ISOdate(2020,4,1), units="days"), units="days")) %>%
+  mutate(disc_id = case_when(
+    running < 0 ~ 0,
+    TRUE ~ 1
+  )) %>%
   # https://cps.ipums.org/cps/codes/ind_2014_codes.shtml
   mutate(Industry = as.factor(case_when(
     IND1990 > 000 & IND1990 <= 032 ~ "AGRICULTURE, FORESTRY, AND FISHERIES",
@@ -37,3 +44,11 @@ mean_data <- data %>%
 
 ggplot(data = mean_data, aes(x=date, y=avg_employment, colour=Industry, group=Industry)) +
   geom_point() + geom_line()
+
+rdplot(data$Employment, data$running, c=0, p=1, h=185, kernel = "uniform")
+
+rdplot(data$Employment, data$running, c=0, p=2, h=185, kernel = "uniform")
+
+model_1 <- feols(Employment ~ running * disc_id | Industry, data=data)
+
+etable(model_1)
