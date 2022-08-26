@@ -57,7 +57,7 @@ q1_data_month %>% ggplot(aes(x = month,
                              y = monthly_employment,
                              col = covid_era)) +
   geom_point() + 
-  ggtitle("Monthly Employment trends: April to December - 2019/2020") +
+  ggtitle("Monthly Employment Trends: April to December - 2019/2020") +
   labs(col = "Lockdown")
   
 ```
@@ -67,6 +67,6 @@ q1_m1 <-  q1_data %>% feols(monthly_employment ~ covid_era)
 
 etable(q1_m1)
 ```
-The retail industry saw a drop in monthly employment of 1,298 people post lockdown, a decrease of 25.8%. This was statistically significant at an alpha of 0.001. Thus, based on the model, it can be concluded that the lockdown had a negative impact on the health of the retail industry. 
+The retail industry saw a drop in monthly employment of 1,298 people post lockdown, a decrease of 25.8%. This was statistically significant at an alpha of 0.001. Thus, based on the model, there is strong evidence that the lockdown had a negative impact on the health of the retail industry. 
 
 This conclusion is contingent on the assumption that the drop was due to the lockdown and not other factors. While retail employment was trending downwards in the months leading up to the lockdown, this assumption is backed up in the "Retail Employment" graph which shows a steep decline in employment at the time of the lockdown. Additionally, employment then proceeds to climb upwards as stores reopened in the months following. The "Monthly Employment Trends" graph further supports this assumption, as after lockdown restrictions eased up throughout the summer of 2020, September to December have similar trends compared to the same span in the year prior to lockdown.
