@@ -9,8 +9,8 @@ ggplot(data = mean_data, aes(x=date, y=avg_employment, colour=Industry, group=In
 
 rdplot(Q2_data_mo$Employment, Q2_data_mo$running, c=0, p=1, h=24, kernel = "uniform")
 
-rdplot(Q2_data_mo$Employment, Q2_data_mo$running, c=0, p=2, h=24, kernel = "uniform")
-rdplot(data_retail$Employment, data_retail$running, c=0, p=2, h=24, kernel = "uniform")
+rdplot(Q2_data_mo$Employment, Q2_data_mo$running, c=0, p=2, h=25, kernel = "uniform")
+rdplot(data_retail$Employment, data_retail$running, c=0, p=2, h=25, kernel = "uniform")
 
 model_1 <- feols(Employment ~ date * disc_id | Industry, data=Q2_data_mo)
 
