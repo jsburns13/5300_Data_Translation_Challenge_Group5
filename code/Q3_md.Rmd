@@ -20,36 +20,39 @@ library(fixest)
 library(marginaleffects)
 ```
 
+
+
+
+# EDA
+_Q: Retail needs to worry about who has money to spend - what has changed about who is working and earning money?_
 ```{r}
 load("../code/Q3_Data_Wrangling.RData")
 sumtable(df)
 ```
 
 
-## EDA
-_Q: Retail needs to worry about who has money to spend - what has changed about who is working and earning money?_
-
-Adding a final variable `is_employed` which calcifies EMPSTAT in (10, 12) as `employed` and EMPSTAT in (21,22) as `Unemployed`
+Im going to start out by adding a final variable `is_employed` which classifies EMPSTAT in (10, 12) as `employed` and EMPSTAT in (21,22) as `Unemployed`, and changing pre post to a bool value. Im also changing covide status to a `bool` value. 
 ```{r}
 df <- df %>% mutate(is_employed = case_when(EMPSTAT == 10 ~ '1', 
                                             EMPSTAT == 12 ~ '1',
                                             TRUE ~ '0')) %>% 
   mutate(is_employed = as.numeric(is_employed))
+
+df$is_post <- (df$COVIDSTATUS == 'post-covid')
 ```
 
 
-## High Level Requency stats
-The Majority class across the board is employed, no large differences in employment among demographic traits, martial status, or industry is clearly visible.
+## High Level Frequency stats
+Next I'm looking at some frequency stats to view the dispersion of our binary dependent variable. For this we notice that the majority class across the board is employed, and there is no large differences in employment among demographic traits, martial status, or industry that is clearly visible.
 
-Because the following factor variables will be used as dummy variables down stream im going to be selective about which ones I keep. I want to avoid making a dummy variable where a single person is employed in a niche market for example. 
+Because the following factor variables will be used as dummy variables down stream im going to be selective about which ones I keep. For example I want to avoid making a dummy variable where a single person is employed in a niche market as this adds more features with little importance. 
 ```{r}
-# $Note:$ majority class is employed for each race
 ggplot(df, aes(x= RACE, color = factor(is_employed))) + geom_bar()
 ```
 
 $Note:$ Looking at break out by race we have some very low count race's that could add noise to our data and create many dummy variables. 
 
-As a retail business (retail market undefined for this project) i would not be concerned so much with niche population demographics but rather the employment demographic as a whole are large groups of individuals. Because retail focuses on a larger audience im going to reduce our sample to to look adjust the top 10 `RACE` demographics in terms of population. 
+As a retail business (retail market type undefined for this project) I would not be concerned so much with niche population demographics but rather the larger demographics that represent a larger group of individuals. Because retail focuses on a larger audience im going to reduce our sample to to look adjust the top 10 `RACE` demographics in terms of emploment population. 
 
 $Note:$ Filtering data for just our top ten most populated RACE categories.  
 
@@ -62,33 +65,30 @@ df %>%
 df <- df %>% 
   filter(RACE == c(100,200,300,651,802,652,801,803,805,804))
 ```
+Looking at employment by industry
 ```{r}
-
 ggplot(df, aes(x= indname, color = factor(is_employed))) + geom_bar()
 ```
 
-$Note:$: Note construction sector have very employees employees, so im going to eliminate this industry from the sample to reduce noise. 
+$Note:$: Construction sector have very few employees, so im going to eliminate this industry from the sample to reduce noise. 
 ```{r}
-
 ggplot(df, aes(x= Age_broad, color = factor(is_employed))) + geom_bar()
 ```
 
 $Note:$: Age shows no large discrepancies, with employment. 
-
 ```{r}
 ggplot(df, aes(x= SEX, color = factor(is_employed))) + geom_bar()
 ```
 
 $Note:$: Sex shows no large discrepancies, with employment.
-
 ```{r}
 ggplot(df, aes(x= MARST, color = factor(is_employed))) + geom_bar()
 ```
 
-$Note:$: Mirage status shows no large discrepancies, with employment.
+$Note:$: Marital status shows no large discrepancies, with employment.
 
 ***
-Next I want to look at our data and the employment change overtime. 
+The above analysis looks at pre and post covid together so next I want to look at our data and the employment change overtime. 
 
 ### _Drop in total employment_
 
@@ -104,7 +104,7 @@ ggplot(data=agg, aes(y = employed_count, x = yearmo))+
   labs(y = 'Count of Employeed', x = 'Time')
 ```
 
-$Note:$ The large fall right after the start of covid followed by a large uptick 
+$Note:$ The large fall right after the start of covid followed by a large uptick a few months later.
 ***
 
 Do to the volatility and scale I also want to look at the employment variation as % changes to capture a more normalized metric. 
@@ -125,12 +125,12 @@ ggplot(data=agg, aes(y = prc_change_emp , x = yearmo))+
   labs(y = 'Count of Employeed', x = 'Time')
 ```
 
-$Note:$ Notice about a 30% fall in total employment count following covid then followed by about a 15% rebound immediately after. 
+$Note:$ Notice about a 30% fall in total employment count following covid then followed by about a 15% rebound immediately after. There is no question that employment took a hit after covid, but the real question is how did it impact different demographics?
 
 ***
 
 # Employment before and after covid
-In this section we want to look at how employment number and the % change in employment fluctuates during covid
+In this section we want to look at how employment numbers and the % change in employment fluctuates after covid
 
 ### _Drop by Race_
 
@@ -148,11 +148,11 @@ ggplot(data=agg, aes(y = log(employed_count), x = yearmo))+
   labs(y = 'Count of Employeed', x = 'Time', color = 'RACE')
 ```
 
-$Note:$ Most races show about a similar level of employment drop, however some races in terms of over all count are more employed to begin with, so a similar drop in employment numbers across race might not really be proportional. 
+$Note:$ Most races show about a similar level of employment drop, however some races in terms of over all count are more or less employed to begin with, so a similar drop in employment numbers across race might not really be proportional impacts. 
 
 ***
 
-So to examine this in more detial lets look at the the % change overtime by race. 
+So to examine this in more detail lets look at the the % change overtime by race. 
 
 ### _% Drop by RACE_
 ```{r, echo= FALSE, message= FALSE, warning=FALSE}
@@ -176,7 +176,7 @@ ggplot(data=agg, aes(y = prc_change_emp, x = yearmo))+
   labs(y = 'Count of Employeed', x = 'Time', color = 'RACE')
 ```
 
-$Note:$ that while some races stay steady some races show high fluctuations after covid. _Some of these are also races with small sample size so a 1 person change in employment makes a large delta in this graph_.
+$Note:$ While some races stay relatively steady and correlated to each other, others show high fluctuations. _Some of these are also races with small sample size so a 1 person change in employment makes a large delta in this graph_.
 
 
 ### _Drop by indname_
@@ -194,7 +194,7 @@ ggplot(data=agg, aes(y = employed_count, x = yearmo))+
   labs(y = 'Count of Employeed', x = 'Time', color = 'Industry Name')
 ```
 
-$Note:$ that NA takes a majority representation in our data set and constructions takes a very small sample set. 
+$Note:$ That NA takes a majority representation in our data set and constructions takes a very small sample set. This industry type field looks to have quality errors, due to the large amount of N/A values. (majority of this industry data is actually unknown so we may not use this in modeling)
 
 ### _% Drop by indname_
 Taking a look by industry type
@@ -218,9 +218,9 @@ ggplot(data=agg, aes(y = prc_change_emp, x = yearmo))+
   labs(y = 'Count of Employeed', x = 'Time', color = 'indname')
 ```
 
-$Note:$ This graph shows a more normalized representation of each industry. Assuming that `NA` is a catch all for anything that's not `Agriculture, Forestry, etc`, or  `Construction`, or `Transportation` NA would serve as the market indicator representing to all other jobs aside from the ones listed here. If we use NA as the market norm across industry we can see that transportation and Agriculture follow the market employment trend pretty closely, however constructions does not. 
+$Note:$ This graph shows a more normalized representation of each industry. Assuming that `NA` is a catch all for anything that's not `Agriculture, Forestry, etc`, or  `Construction`, or `Transportation` NA would serve as the market indicator representing all other jobs aside from the ones listed here. If we use industry `NA` as the market norm across industries we can see that Transportation and Agriculture follow the overall market employment trend pretty closely, however constructions does not. This might indicate that Transportation and Agriculture do not systematically differ from that of other job types in terms of the covid impact on employment. 
 
-Construction though also has a very small sample size and a small change in the number employed can make the the % change look mosr sever that it is (which is the case here)
+_Construction though also has a very small sample size, so a small change in the number employed can make the % change look more sever than it is (which is the case here_
 
 ### _Drop by age group_
 ```{r, message=FALSE}
@@ -257,7 +257,7 @@ ggplot(data=agg, aes(y = prc_change_emp, x = yearmo))+
   labs(y = 'Count of Employeed', x = 'Time')
 ```
 
-$Note:$ After looking at the age groups graphs we can see that the change across age groups seems to be highly correlated to eachother, indicating that one age group does not behave systematically different than that of another.  
+$Note:$ After looking at the age groups graphs by count and %  we can see that the change across age groups seems to be highly correlated to each other, indicating that one age group does not behave systematically different than that of another.  
 
 ### _Drop by sex_
 ```{r, message=FALSE}
@@ -331,22 +331,26 @@ ggplot(data=agg, aes(y = prc_change_emp, x = yearmo))+
   labs(y = 'Count of Employeed', x = 'Time')
 ```
 
-$Note:$ Employment change across marital is also correlated to each other indicating that one group does not behave systematically different than that of another.  
+$Note:$ Employment change across marital is also correlated to each other indicating that one group does not behave systematically different than that of another.
+
+Based on the SEX, AGE graphical relationship we can see that they move in sync, marital status however has more variation in select statuses. Due to these findings I'm selecting not to explore Age and sex variables in the model.  
 
 # Modeling 
 
 ### _binary effects (no interaction term)_
-The below models simply linear models with factor variables. This model does _NOT_ look at pre and post covid differences, it is simply looking at the factor's coefficients on employment as it applies to both pre and post covid.
+The below models show simple linear models with factor variables. This model does _NOT_ look at pre and post covid differences, it is simply looking at the factor's coefficients on employment as it applies to both pre and post covid.
 ```{r}
 lpm1 <- feols(is_employed ~ factor(RACE) + factor(SEX) + factor(Age_broad) + factor(MARST) + factor(Education), 
               data = df, se='hetero')
 
 etable(lpm1, digits = 3)
 ```
-$Note:$ 
-- RACE Categories Coefs have a negative effect on employment regardless of if it was pre or post covid, relative to the `RACE 100` category which is "white". 
-- Marital status classes are statistically significant and have a negative coefficient, relative to that of the `Marital status 1` which is "Married, spouse present".
-- Age groups have little to no statistical significance across age groups and same with sex.  
+_Interpretation_:
+
+- RACE Categories Coefs have a negative effect on employment regardless of if it was pre or post covid, relative to the `RACE 100` category which is "white". Implying the top 10 races are predicted to be employed less than that of the race "white". Many of these coefficients are statistically significant. 
+
+- Marital status classes are all statistically significant and have a negative coefficient, relative to that of the `Marital status 1` which is "Married, spouse present".Implying that non married statuses are predicted to be employed less than that of the married status. 
+- Age groups have little to no statistical significance across age groups and same with sex. Implying that age does not really play a significant factor in employment status.  
 
 
 ## Predicted values
@@ -360,7 +364,8 @@ ggplot(data = df, mapping = aes(x=RACE, y=lpm_fitted))+
   geom_smooth(color = 'red', se=FALSE)+
   theme_bw()
 ```
- This graph shows the predicted value for each race category. $Note:$ that Certain races are have a lower predicted liklyhood for employment status to employeed.
+
+$Note:$ This graph shows the predicted value for each race category for both pre and post covid. Notice that certain races are have a lower predicted likelihood for employment status.
 
 ### _Education_
 ```{r}
@@ -369,7 +374,8 @@ ggplot(data = df, mapping = aes(x=Education, y=lpm_fitted))+
   geom_smooth(color = 'red', se=FALSE)+
   theme_bw()
 ```
-$Note:$ a large difference in doctorate level but not a huge difference between high school and undergrad
+
+$Note:$ A large difference in doctorate level but not a huge difference between high school and undergrad in terms of predicted employment status.
 
 ### _MARST_
 ```{r}
@@ -378,80 +384,118 @@ ggplot(data = df, mapping = aes(x=MARST, y=lpm_fitted))+
   geom_smooth(color = 'red', se=FALSE)+
   theme_bw()
 ```
-$Note:$ Fairly constant predictive value acorss marital status but notice that 1 (married, spouce present) have the highest predictive probability and 3 (separated) and 6 (single) have the lowest predicted probability. 
+
+$Note:$ Fairly constant predictive value across marital status but notice that "1" (married spouse present) have the highest predicted value and "3" (separated) and "6" (single) have the lowest predicted probability. 
 
 ***
 
 
 ### Modeling with interaction term
-make dummy for education
+Make dummy for education
 ```{r}
-doctor <- ifelse(df$Education == 'doctorate', 1, 0)
-bachelors <- ifelse(df$Education == 'college/associate/bachelor', 1, 0)
-highschool <- ifelse(df$Education == 'high school or lower', 1, 0)
+lpm3 <- feols(is_employed ~ is_post + Education, data = df, se='hetero')
+lpm4 <- feols(is_employed ~  is_post + Education + is_post:Education, data = df, se='hetero')
+etable(lpm3,lpm4)
 
-dummy_df <- data.frame(is_employed = df$is_employed,
-                       COVIDSTATUS = df$COVIDSTATUS,
-                       doctor = doctor,
-                       bachelors = bachelors,
-                       highschool= highschool)
 
-lpm3 <- feols(is_employed ~ COVIDSTATUS, data = dummy_df, se='hetero')
-lpm4 <- feols(is_employed ~ doctor + COVIDSTATUS + COVIDSTATUS:doctor, data = dummy_df, se='hetero')
-lpm5 <- feols(is_employed ~ bachelors + COVIDSTATUS + COVIDSTATUS:bachelors, data = dummy_df, se='hetero')
-lpm6 <- feols(is_employed ~ highschool + COVIDSTATUS + COVIDSTATUS:highschool, data = dummy_df, se='hetero')
-etable(lpm3,lpm4,lpm5, lpm6)
 ```
 
-_Interpretation_:
-We have an intercept for our index variable at 0.9288 which is statistically significant
+_Interpretation lpm3_
 
-Coefficient on "COVIDSTATUSpre-covid" by its self:
-"COVIDSTATUSpre-covid" = 0.0408*** indicating that before covid there was a 4.08 percentage point higher employment status regardless of education or any other factor. This variable represents the effect of covid on employment number.
+We have an intercept for our index variable at 0.9904 which is statistically significant.
 
-Coefficient "doctor" by its self = 0.0482*** indicating that by having a doctorate degree post covid you have 4.07 percentage point increase in the employment status, which loosely translated to likely hood in this case, however if you are a doctor pre covid you would get a 1.91 percentage point decrease in employment relative to the post covid status. The effect of being a doctor over not beeing a doctor is (4.07 - 1.91) 2.16 percentage point increase in employment
+- is_postTRUE = -0.0414 indicating that the over all effect of covid had a -4.14 percentage point impact on employment.
 
-A similar effect is noticed for bachelors degree students are well however the opposite reaction is noticed for highschool level of educations which is also statistical significant. 
+- doctor = 0.0261 indicating that the over all effect of having a doctorate has a 2.61 percentage point impact on employment relative to bachelors degree.
 
-This imply that higher education may have actual benefited in terms of employment status relative to pre covid. 
+- highschool = -0.0213 indicating that the over all effect of having a highschool education or less has a -2.31 percentage point impact on employment relative to bachelors degree. 
 
-$Note:$ This is statistical significant at the **0.1%** level
+$Note:$ All of which are statistically significant at the 0.01% leve
+
+_Interpretation lpm4_
+
+This model looks at the interaction term between education and is_post covid. 
+
+- The effect of being a doctor vs having a bachelors post covid is  0.0167 indicating that there is a positive 1.67 percentage point increase associated with being a doctor post covid relative to a bachelors.(this is statistically significant at the 0.01% level). This same effect pre-covid was 0.0181 or 1.81% percentage points. This results in a covid effect of -0.14 percentage point for doctoral employment. (Not a huge drop post covid)
+
+- The effect of having a highschool degree post covid is -0.0183 indicating that there is a -1.83 percentage point effect associated with highschool degree post covid relative to a bachelors.(this is statistically significant at the 0.01% level). This same effect pre-covid was -0.0134 or -1.34% percentage points relitive to a bachelors degree. This results in a covid effect of -0.49 percentage points for high school degrees on employment. (note a larger effect than doctoral).
+
+
+$Note:$ The covid effect on high school degrees is ~ 3X larger of an effect than that of the effect on bachelors degrees or doctoral degrees.  This is statistical significant at the **0.1%** level and imply disproportionate impact to people with a lower degree status.
+
 
 ### _RACE_
 ```{r}
-lpm9 <- feols(is_employed ~ COVIDSTATUS, data = df, se='hetero')
-lpm10 <- feols(is_employed ~ factor(RACE) + COVIDSTATUS + COVIDSTATUS:RACE, data = df, se='hetero')
-
-etable(lpm9,lpm10)
+lpm10 <- feols(is_employed ~ is_post + RACE + is_post:RACE, data = df, se='hetero')
+etable(lpm10)
 ```
-_Interpretation_:
-This is an identical interpetation as aboce but for the rave variable. 
 
-Coefficient on "COVIDSTATUSpre-covid" by its self:
-"COVIDSTATUSpre-covid" = 0.0408*** indicating that before covid there was a 4.08 percentage point higher employment status regardless of education or any other factor. This variable represents the effect of covid on employment number.
 
-Coefficients for the COVIDSTATUSpost-covid  x race factors (200 "Black", and 651 "Asian") show a statistically significant and negative coefficient. Implying that the employment percentage points were lower post covide relitive to "white" people.  
+_Interpretation lpm10_
 
-This imply that the effect of covid on employment has a stronger effect on select races.
+This is an identical interpretation as above but for the `RACE` variables relative to RACE "White". 
+
+- The effect of RACE200 (black) vs RACE100 "White" post covid is -0.0186 indicating that there is a negative -1.86 percentage point decrease associated with being black post covid, relative to being white post covid on employment rates. (this is statistically significant at the 0.1% level).
+
+- Additionally Race200 (black pre-covid) had a -1.93 percentage point difference compared to Race 100 (white pre-covid).So the effect of covid on race black there for is -0.07 percentage points. 
+
+- The effect of RACE300 (American Indian) vs RACE100 "White" post covid is -0.0471 indicating that there is a negative -4.71 percentage point decrease associated with being American Indian post covid, relative to being white post covid. (this is statistically significant at the 0.1% level). 
+
+- Additionally Race300 (American Indian pre-covid) had a -0.81 percentage point difference compared to Race 100 (white pre-covid).
+
+- The effect of covid on American Indian there for is -0.74 percentage points.. 
+
+$Note:$ Covid has a stronger effect on these races than white, also not that native american impact was stronger that the impact to the black population by ~ 10x. This is statistically significant at the 0.1% level. 
+
 
 
 ### _Matital Status_
 ```{r}
-lpm11 <- feols(is_employed ~ COVIDSTATUS, data = df, se='hetero')
-lpm12 <- feols(is_employed ~ factor(MARST) + COVIDSTATUS + COVIDSTATUS:MARST, data = df, se='hetero')
+lpm11 <- feols(is_employed ~ is_post + MARST, data = df, se='hetero')
+lpm12 <- feols(is_employed ~ MARST + is_post + is_post:MARST, data = df, se='hetero')
 
 etable(lpm11,lpm12)
 ```
-_Interpretation_:
 
-Marital status post covid has two statistically significant interaction terms "COVIDSTATUSpost-covid x MARST3" which is for "seperated" status and "COVIDSTATUSpost-covid x MARST6" for "single status". Both these variables have a negative coefficient indicating here that the effect of being single or separated post covid on employment is more negitive than that of a married person post covid.  
+_Interpretation lmp12_
+
+This model looks at the interaction term between marital status and covid. These results are all relative to MARST = 1 or married with spouse present. 
+
+- The effect of having a marital status = 3 (separated) vs status = 1 (married) post covid is -0.0338 indicating that there is a -3.38 percentage point change associated with being separated post covid. (this is statistically significant at the 1% level)
+
+- The coefficient on being separated pre covid is -0.0340 or -3.4 percentage point. 
+
+- The effect of covid on separated individuals there for is -0.02 percentage points. 
+
+The same observations occurs for MARST 6 (single) as well resulting in a covid effect of -0.95 percentage points. These effects are not substantially different than that of married individuals, and the single status shows a much larger effect of covid. 
 
 # Summary
 
-Based on our RACE and Educations and marital status variables which showed the most variance by group around we can infer that there is a difference pre and post labor force based on these factors. The effect for black and Asian groups repetitively impact employment post covid relative to that of the white group.  Educational standards are impacted disproportionately, we actually see and increase in employment percentage points for doctorate and bachelors degrees but a decrease in high school equivalence or less. Lastly we can also differences across marital statu, not so much in the interact terms effect but it does help identify who is and who isnt employed, the propotion employeed between marital status may not change much due to the effect of covide but it still shows the dominant employment group. 
+Based on our analysis of demographics and the effect of covid on each demographic we can conclude there there are select demographic traits that are more impacted than others by covid.
 
-Based on this analysis i would recommend a retailer (who is profit seeking) post covid to focus on marking efforts geared to towards an educated, married, and white demographics as the impact of covid on that demographic has been lesser than that of other demographics when looking at the interaction effect. If the retailers goal is to retain business by marketing to those that are employeed post covid that best way to do that would be to market to educated, married, and white demographics. 
+Out of the select demographic variables used for analysis (RACE, Education, and Marital Status) we can conclude that select RACE groups, Education status, and maritial statuses were more heavily impact by covid. 
 
+Education:
+
+- Doctoral degree was impacted by covid by -0.25 percentage points.
+- Bachelor degree was impacted by covid by -0.24 percentage points.
+- High school degree or less was impacted by covid by -0.8 percentage points. (~3x higher effect than that of bachelors degree or higher)
+
+Race:
+
+When compared to RACE100 (white)
+
+- The effect of covid on a Black individual was -0.07 percentage points relative to white. 
+- The effect of covid on a Native American individual was -0.74 percentage points relative to white.
+
+Marital Status:
+
+When compared to being married.
+
+- The effect of covid on a separated individual was -0.02 percentage points relative to married. 
+- The effect of covid on a single individual was -0.95 percentage points relative to married. 
+
+Using employment as a pseudo measure for spending power I would recommend that a retail organization (post covid) focus there retail and marketing strategy on a select demographic that's employment was less impacted by the effect of covid.This assumes that the retail organization is not focused on specific target audience or demographic, and this assumes that the retail organization in mind prefers quantity of customers, and is profit seeking. In a changing post covid market environment i would recommend a retail focused attention to individuals who's employment status was less impacted by covid, those individuals typically being well educated, white, and married and tended to feel a lesser effect of covid in terms of employment.  
 
 
 
