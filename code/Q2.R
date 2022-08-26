@@ -7,20 +7,20 @@ library(vtable)
 ggplot(data = mean_data, aes(x=date, y=avg_employment, colour=Industry, group=Industry)) +
   geom_point() + geom_line()
 
-rdplot(data$Employment, data$running, c=0, p=1, h=185, kernel = "uniform")
+rdplot(Q2_data_mo$Employment, Q2_data_mo$running, c=0, p=1, h=24, kernel = "uniform")
 
-rdplot(data$Employment, data$running, c=0, p=2, h=185, kernel = "uniform")
-rdplot(data_retail$Employment, data_retail$running, c=0, p=2, h=185, kernel = "uniform")
+rdplot(Q2_data_mo$Employment, Q2_data_mo$running, c=0, p=2, h=24, kernel = "uniform")
+rdplot(data_retail$Employment, data_retail$running, c=0, p=2, h=24, kernel = "uniform")
 
-model_1 <- feols(Employment ~ running * disc_id | Industry, data=data)
+model_1 <- feols(Employment ~ date * disc_id | Industry, data=Q2_data_mo)
 
 etable(model_1)
 
-data %>%
+Q2_data_mo %>%
   group_by(Industry) %>%
   summarize(mean(Employment))
 
-IndList <- split(data, f=data$Industry)
+IndList <- split(Q2_data_mo, f=Q2_data_mo$Industry)
 model_list <- list()
 rdrobust_list <- list()
 
@@ -39,11 +39,15 @@ for (i in 1:length(rdrobust_list)) {
   summary(rdrobust_list[[i]])
 }
 
-model_2 <- feols(Employment ~ running * disc_id | Retail, data=data, se="hetero")
+model_2 <- feols(Employment ~ date * disc_id | Retail, data=Q2_data_mo, se="hetero")
+model_2_rd_r <- rdrobust(data_retail$Employment, data_retail$running, c=0, p=2, h=24, kernel = "uniform")
+model_2_rd_nr <- rdrobust(data_non_retail$Employment, data_non_retail$running, c=0, p=2, h=24, kernel = "uniform")
 
-model_3 <- feols(Employment ~ disc_id * Industry, data = data, se="hetero")
+model_3 <- feols(Employment ~ disc_id * Industry, data = Q2_data_mo, se="hetero")
 
 etable(model_1, model_2)
+summary(model_2_rd_r)
+summary(model_2_rd_nr)
 
 # 1 do rdrobusts for model 1 & 2
 # 2 redo everything with sum(employment) instead of %

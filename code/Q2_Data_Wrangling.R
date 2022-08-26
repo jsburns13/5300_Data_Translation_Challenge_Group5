@@ -5,21 +5,24 @@ library(fixest)
 library(vtable)
 
 ddi <- read_ipums_ddi("data/cps_00004.xml")
-data <- read_ipums_micro(ddi)
+Q2_data <- read_ipums_micro(ddi)
 
-data <- data %>%
+Q2_data <- Q2_data %>%
   filter(YEAR>=2019 & YEAR <= 2021) %>%
   mutate(Employment = case_when(
     EMPSTAT == 10 | EMPSTAT == 12 ~ 1,
     TRUE ~ 0
   )) %>%
   mutate(date = ISOdate(YEAR,MONTH,1)) %>%
-  mutate(running = as.numeric(difftime(date,ISOdate(2020,4,1), units="days"), units="days")) %>%
+  # mutate(month_diff = difftime(date,ISOdate(2020,4,1),units="months")) %>%
+  mutate(running = as.numeric(difftime(date,ISOdate(2020,3,1), units="weeks"), units="weeks")) %>%
+  filter(MONTH != 3) %>%
   mutate(disc_id = case_when(
     running < 0 ~ 0,
     TRUE ~ 1
   )) %>%
   # https://cps.ipums.org/cps/codes/ind_2014_codes.shtml
+  filter(IND1990 > 000 & IND1990 < 940) %>%
   mutate(Industry = as.factor(case_when(
     IND1990 > 000 & IND1990 <= 032 ~ "AGRICULTURE, FORESTRY, AND FISHERIES",
     IND1990 >= 040 & IND1990 <= 050 ~ "MINING",
@@ -43,12 +46,17 @@ data <- data %>%
     TRUE ~ 0
   ))
 
-data <- data %>%
-  filter(Industry != "NIU" & Industry != "ACTIVE DUTY MILITARY")
+Q2_data_mo <- Q2_data %>%
+  filter(Industry != "NIU" & Industry != "ACTIVE DUTY MILITARY") %>%
+  group_by(Industry, date, Retail, running, disc_id) %>%
+  summarise(Employment = mean(Employment))
 
-data_retail <- data %>%
+data_retail <- Q2_data %>%
   filter(Retail == 1)
 
-mean_data <- data %>%
+data_non_retail <- Q2_data %>%
+  filter(Retail != 1)
+
+mean_data <- Q2_data %>%
   group_by(Industry, date) %>%
   summarise(avg_employment = mean(Employment))
