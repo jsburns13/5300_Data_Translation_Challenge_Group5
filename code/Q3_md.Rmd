@@ -37,6 +37,37 @@ df <- df %>% mutate(is_employed = case_when(EMPSTAT == 10 ~ '1',
   mutate(is_employed = as.numeric(is_employed))
 ```
 
+
+## High Level Requency stats
+The Majority class across the board is employed, no large differences in employment among demographic traits, martial status, or industry is clearly visible.
+Because the following factor variables will be used as dummy variables down stream im going to be selective about which ones I keep. (we dont need to keep a dummy variable where a single person is employed in a niche market for example)
+```{r}
+# note majority class is employed for each race
+ggplot(df, aes(x= RACE, color = factor(is_employed))) + geom_bar()
+```
+Note: Looking at break out by race we have some very low count race's that could add noise to our data and create many dummy variables. 
+As a retail business (unless particularly catering to a certain demographic) i would not be concerned so much with the population demographics but rather the employment demographic as a whole. Because retailed often focus on a larger audience im going to reduce out sample to to look at the top 10 RACE demographics. 
+```{r}
+# note majority class is employed for each indname 
+ggplot(df, aes(x= indname, color = factor(is_employed))) + geom_bar()
+```
+Note: we have on sector with practically no employees, so im going to eliminate this industry from the sample to reduce noise 
+```{r}
+# note majority class is employed for each age 
+ggplot(df, aes(x= Age_broad, color = factor(is_employed))) + geom_bar()
+```
+
+```{r}
+# note majority class is employed for each sex
+ggplot(df, aes(x= SEX, color = factor(is_employed))) + geom_bar()
+```
+
+```{r}
+# note majority class is employed for each MARST
+ggplot(df, aes(x= MARST, color = factor(is_employed))) + geom_bar()
+```
+
+***
 Next I want to look at our data and the employment change overtime. 
 ### _Drop in total employment_
 
@@ -54,8 +85,7 @@ ggplot(data=agg, aes(y = employed_count, x = yearmo))+
 Note the drastic fall right after the start of covid
 ***
 
-We also want to look at the employment variation as % changes to capture normalized changes across groups.
-The following is still total % change over time but this shows a more normalized feature. 
+We also want to look at the employment variation as % changes to capture normalized changes. 
 ### _By percentage change to normalize the change_
 ```{r}
 agg <- df %>% 
@@ -74,8 +104,11 @@ ggplot(data=agg, aes(y = prc_change_emp , x = yearmo))+
 ```
 Note about a 30% fall in total employment count following covid.
 ***
+# Employment before and after covid
+In this section we want to look at how employment number and the % change in employment fluctuates during covid
 
 ### _Count Drop by Race_
+
 ```{r}
 agg <- df %>% 
   group_by(yearmo, RACE) %>% 
@@ -118,6 +151,21 @@ ggplot(data=agg, aes(y = prc_change_emp, x = yearmo))+
 
 Note that while some races stay relitivly steady some races show high fluctuations 
 
+
+### _Count Drop by indname_
+```{r}
+agg <- df %>% 
+  group_by(yearmo, indname) %>% 
+  summarise(employed_count = sum(as.numeric(is_employed))) %>% 
+  filter(yearmo >= 201950) %>% 
+  filter(yearmo <= 202020) %>%
+  arrange(.,indname, yearmo)
+
+ggplot(data=agg, aes(y = employed_count, x = yearmo))+
+  geom_line(alpha = 0.6, aes(color = factor(indname)))+
+  geom_vline(xintercept = 202003)+
+  labs(y = 'Count of Employeed', x = 'Time', color = 'Industry Name')
+```
 ### _% Drop by indname_
 Taking a look by industry type
 ```{r}
@@ -139,23 +187,28 @@ ggplot(data=agg, aes(y = prc_change_emp, x = yearmo))+
   geom_vline(xintercept = 202003, colour="#BB0000")+
   labs(y = 'Count of Employeed', x = 'Time', color = 'indname')
 ```
-# Count Drop by indname
-# Note that they take a dip it appears that the 
+
+### _Count Drop by age group_
+```{r}
 agg <- df %>% 
-  group_by(yearmo, indname) %>% 
+  group_by(yearmo,Age_broad) %>% 
   summarise(employed_count = sum(as.numeric(is_employed))) %>% 
-  arrange(.,indname, yearmo)
+  filter(yearmo >= 201950) %>% 
+  filter(yearmo <= 202020) %>%
+  arrange(.,Age_broad, yearmo)
 
 ggplot(data=agg, aes(y = employed_count, x = yearmo))+
-  geom_line(alpha = 0.6, aes(color = factor(indname)))+
+  geom_line(alpha = 0.6, aes(color = factor(Age_broad)))+
   geom_vline(xintercept = 202003)+
-  labs(y = 'Count of Employeed', x = 'Time', color = 'Industry Name')
-
-
-# % Drop by age group
+  labs(y = 'Count of Employeed', x = 'Time', color = 'Age_broad')
+```
+### _% Drop by age group_
+```{r}
 agg <- df %>% 
   group_by(yearmo, Age_broad) %>% 
-  summarise(employed_count = sum(as.numeric(is_employed))) %>% 
+  summarise(employed_count = sum(as.numeric(is_employed))) %>%
+  filter(yearmo >= 201950) %>% 
+  filter(yearmo <= 202020) %>%
   arrange(., yearmo)
 
 agg <- agg %>% 
@@ -168,24 +221,30 @@ ggplot(data=agg, aes(y = prc_change_emp, x = yearmo))+
   geom_line(alpha = 0.6, aes(color = factor(Age_broad)))+
   geom_vline(xintercept = 202003, colour="#BB0000")+
   labs(y = 'Count of Employeed', x = 'Time')
+```
 
 
-# Count Drop by age group
-#Note: Some drop more than others
+### _Count Drop by sex_
+```{r}
 agg <- df %>% 
-  group_by(yearmo,Age_broad) %>% 
+  group_by(yearmo,SEX) %>% 
   summarise(employed_count = sum(as.numeric(is_employed))) %>% 
-  arrange(.,Age_broad, yearmo)
+  filter(yearmo >= 201950) %>% 
+  filter(yearmo <= 202020) %>%
+  arrange(.,SEX, yearmo)
 
 ggplot(data=agg, aes(y = employed_count, x = yearmo))+
-  geom_line(alpha = 0.6, aes(color = factor(Age_broad)))+
+  geom_line(alpha = 0.6, aes(color = factor(SEX)))+
   geom_vline(xintercept = 202003)+
-  labs(y = 'Count of Employeed', x = 'Time', color = 'Age_broad')
-
+  labs(y = 'Count of Employeed', x = 'Time', color = 'SEX')
+```  
 # % Drop by sex
+```{r}
 agg <- df %>% 
   group_by(yearmo, SEX) %>% 
-  summarise(employed_count = sum(as.numeric(is_employed))) %>% 
+  summarise(employed_count = sum(as.numeric(is_employed))) %>%
+  filter(yearmo >= 201950) %>% 
+  filter(yearmo <= 202020) %>%
   arrange(., yearmo)
 
 agg <- agg %>% 
@@ -198,47 +257,43 @@ ggplot(data=agg, aes(y = prc_change_emp, x = yearmo))+
   geom_line(alpha = 0.6, aes(color = factor(SEX)))+
   geom_vline(xintercept = 202003, colour="#BB0000")+
   labs(y = 'Count of Employeed', x = 'Time')
+```
 
-# Count Drop by sex
-agg <- df %>% 
-  group_by(yearmo,SEX) %>% 
-  summarise(employed_count = sum(as.numeric(is_employed))) %>% 
-  arrange(.,SEX, yearmo)
-
-ggplot(data=agg, aes(y = employed_count, x = yearmo))+
-  geom_line(alpha = 0.6, aes(color = factor(SEX)))+
-  geom_vline(xintercept = 202003)+
-  labs(y = 'Count of Employeed', x = 'Time', color = 'SEX')
-
-# Drop in Employment by marital status
+### _ Count Drop by marital status_
+```{r}
 agg <- df %>% 
   group_by(yearmo, MARST) %>% 
   summarise(employed_count = sum(as.numeric(is_employed))) %>% 
+  filter(yearmo >= 201950) %>% 
+  filter(yearmo <= 202020) %>%
   arrange(.,MARST, yearmo)
 
 ggplot(data=agg, aes(y = employed_count, x = yearmo))+
   geom_line(alpha = 0.6, aes(color = factor(MARST)))+
   geom_vline(xintercept = 202003)+
   labs(y = 'Count of Employeed', x = 'Time', color = 'MARST')
+```
+### _% Drop by marital status_
+```{r}
+agg <- df %>% 
+  group_by(yearmo, MARST) %>% 
+  summarise(employed_count = sum(as.numeric(is_employed))) %>%
+  filter(yearmo >= 201950) %>% 
+  filter(yearmo <= 202020) %>%
+  arrange(., yearmo)
 
+agg <- agg %>% 
+  group_by(MARST) %>% 
+  mutate(lag1_value = lag(employed_count, n=1, order_by= yearmo)) %>% 
+  mutate(prc_change_emp = (employed_count-lag1_value)/ lag1_value) %>% 
+  arrange(., MARST, yearmo)
 
-## Frequency stats
-# Majority class is employed, no large differences in employment among demographic traits
+ggplot(data=agg, aes(y = prc_change_emp, x = yearmo))+
+  geom_line(alpha = 0.6, aes(color = factor(MARST)))+
+  geom_vline(xintercept = 202003, colour="#BB0000")+
+  labs(y = 'Count of Employeed', x = 'Time')
+```
 
-# note majority class is employed for each race
-ggplot(df, aes(x= RACE, color = factor(is_employed))) + geom_bar()
-
-# note majority class is employed for each indname 
-ggplot(df, aes(x= indname, color = factor(is_employed))) + geom_bar()
-
-# note majority class is employed for each age 
-ggplot(df, aes(x= Age_broad, color = factor(is_employed))) + geom_bar()
-
-# note majority class is employed for each sex
-ggplot(df, aes(x= SEX, color = factor(is_employed))) + geom_bar()
-
-# note majority class is employed for each MARST
-ggplot(df, aes(x= MARST, color = factor(is_employed))) + geom_bar()
 
 ##### TODO: More in depth notations
 
