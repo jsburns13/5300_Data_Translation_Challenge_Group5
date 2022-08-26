@@ -41,10 +41,7 @@ Q2_data <- Q2_data %>%
     TRUE ~ "NIU"
   ))) %>%
   filter(Industry != "NIU" & Industry != "ACTIVE DUTY MILITARY") %>%
-  mutate(Retail = case_when(
-    Industry == "RETAIL TRADE" ~ 1,
-    TRUE ~ 0
-  ))
+  mutate(Retail = Industry == "RETAIL TRADE")
 
 Q2_data_mo <- Q2_data %>%
   filter(Industry != "NIU" & Industry != "ACTIVE DUTY MILITARY") %>%
@@ -56,6 +53,10 @@ data_retail <- Q2_data %>%
 
 data_non_retail <- Q2_data %>%
   filter(Retail != 1)
+
+data_ret_summ <- Q2_data %>%
+  group_by(date, running, Retail) %>%
+  summarise(Employment=mean(Employment))
 
 mean_data <- Q2_data %>%
   group_by(Industry, date) %>%

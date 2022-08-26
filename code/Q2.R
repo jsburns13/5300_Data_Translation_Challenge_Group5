@@ -11,6 +11,10 @@ rdplot(Q2_data_mo$Employment, Q2_data_mo$running, c=0, p=1, h=24, kernel = "unif
 
 rdplot(Q2_data_mo$Employment, Q2_data_mo$running, c=0, p=2, h=25, kernel = "uniform")
 rdplot(data_retail$Employment, data_retail$running, c=0, p=2, h=25, kernel = "uniform")
+ggplot(data=data_ret_summ, aes(x=date, y=Employment, colour=Retail)) +
+  geom_point() +
+  geom_line() +
+  geom_vline(xintercept=ISOdate(2020,4,1))
 
 model_1 <- feols(Employment ~ date * disc_id | Industry, data=Q2_data_mo)
 
@@ -56,3 +60,4 @@ summary(model_2_rd_nr)
 # 5 R Markdown
 
 wald(model_3)
+
