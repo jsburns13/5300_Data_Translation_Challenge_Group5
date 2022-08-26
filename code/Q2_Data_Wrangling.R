@@ -4,9 +4,10 @@ library(rdrobust)
 library(fixest)
 library(vtable)
 
-ddi <- read_ipums_ddi("data/cps_00004.xml")
+ddi <- read_ipums_ddi("../data/cps_00004.xml")
 Q2_data <- read_ipums_micro(ddi)
 
+# Base transformations in order to support Q2 analysis
 Q2_data <- Q2_data %>%
   filter(YEAR>=2019 & YEAR <= 2021) %>%
   mutate(Employment = case_when(
@@ -15,10 +16,10 @@ Q2_data <- Q2_data %>%
   )) %>%
   mutate(date = ISOdate(YEAR,MONTH,1)) %>%
   # mutate(month_diff = difftime(date,ISOdate(2020,4,1),units="months")) %>%
-  mutate(running = as.numeric(difftime(date,ISOdate(2020,3,1), units="weeks"), units="weeks")) %>%
+  mutate(weeks = as.numeric(difftime(date,ISOdate(2020,3,1), units="weeks"), units="weeks")) %>%
   filter(MONTH != 3) %>%
   mutate(disc_id = case_when(
-    running < 0 ~ 0,
+    weeks < 0 ~ 0,
     TRUE ~ 1
   )) %>%
   # https://cps.ipums.org/cps/codes/ind_2014_codes.shtml
@@ -43,21 +44,21 @@ Q2_data <- Q2_data %>%
   filter(Industry != "NIU" & Industry != "ACTIVE DUTY MILITARY") %>%
   mutate(Retail = Industry == "RETAIL TRADE")
 
+# Aggregating monthly data and ensuring
 Q2_data_mo <- Q2_data %>%
   filter(Industry != "NIU" & Industry != "ACTIVE DUTY MILITARY") %>%
-  group_by(Industry, date, Retail, running, disc_id) %>%
+  group_by(Industry, date, Retail, weeks, disc_id) %>%
   summarise(Employment = mean(Employment))
 
+# Isolating retail
 data_retail <- Q2_data %>%
   filter(Retail == 1)
 
+# Isolating non-retail
 data_non_retail <- Q2_data %>%
   filter(Retail != 1)
 
+# Summarizing by retail[T/F] by date
 data_ret_summ <- Q2_data %>%
-  group_by(date, running, Retail) %>%
+  group_by(date, weeks, Retail) %>%
   summarise(Employment=mean(Employment))
-
-mean_data <- Q2_data %>%
-  group_by(Industry, date) %>%
-  summarise(avg_employment = mean(Employment))

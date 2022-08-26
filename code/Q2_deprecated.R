@@ -4,17 +4,17 @@ library(rdrobust)
 library(fixest)
 library(vtable)
 
-ggplot(data = mean_data, aes(x=date, y=avg_employment, colour=Industry, group=Industry)) +
+ggplot(data = Q2_data_mo, aes(x=date, y=Employment, colour=Industry, group=Industry)) +
   geom_point() + geom_line()
 
-rdplot(Q2_data_mo$Employment, Q2_data_mo$running, c=0, p=1, h=24, kernel = "uniform")
+rdplot(Q2_data_mo$Employment, Q2_data_mo$weeks, c=0, p=1, h=24, kernel = "uniform")
 
-rdplot(Q2_data_mo$Employment, Q2_data_mo$running, c=0, p=2, h=25, kernel = "uniform")
-rdplot(data_retail$Employment, data_retail$running, c=0, p=2, h=25, kernel = "uniform")
+rdplot(Q2_data_mo$Employment, Q2_data_mo$weeks, c=0, p=2, h=25, kernel = "uniform")
+rdplot(data_retail$Employment, data_retail$weeks, c=0, p=2, h=25, kernel = "uniform")
 ggplot(data=data_ret_summ, aes(x=date, y=Employment, colour=Retail)) +
   geom_point() +
   geom_line() +
-  geom_vline(xintercept=ISOdate(2020,4,1))
+  geom_vline(xintercept=ISOdate(2020,3,1))
 
 model_1 <- feols(Employment ~ date * disc_id | Industry, data=Q2_data_mo)
 
@@ -22,7 +22,7 @@ etable(model_1)
 
 Q2_data_mo %>%
   group_by(Industry) %>%
-  summarize(mean(Employment))
+  summarize("Employment Rate" = mean(Employment))
 
 IndList <- split(Q2_data_mo, f=Q2_data_mo$Industry)
 model_list <- list()
@@ -33,8 +33,8 @@ for (i in 1:length(IndList)) {
   modelname <- paste0(indus, "_model") %>%
     replace(" ", "_")
   
-  model_list[[paste0(indus)]] <- assign(modelname,feols(Employment ~ running * disc_id, data=IndList[[i]]))
-  rdrobust_list[[paste0(indus)]] <- assign(modelname,rdrobust(IndList[[i]]$Employment,IndList[[i]]$running,c=0,p=2,h=185,kernel="uniform"))
+  model_list[[paste0(indus)]] <- assign(modelname,feols(Employment ~ weeks * disc_id, data=IndList[[i]]))
+  rdrobust_list[[paste0(indus)]] <- assign(modelname,rdrobust(IndList[[i]]$Employment,IndList[[i]]$weeks,c=0,p=2,h=185,kernel="uniform"))
 }
 
 etable(model_list)
@@ -43,9 +43,9 @@ for (i in 1:length(rdrobust_list)) {
   summary(rdrobust_list[[i]])
 }
 
-model_2 <- feols(Employment ~ date * disc_id | Retail, data=Q2_data_mo, se="hetero")
-model_2_rd_r <- rdrobust(data_retail$Employment, data_retail$running, c=0, p=2, h=24, kernel = "uniform")
-model_2_rd_nr <- rdrobust(data_non_retail$Employment, data_non_retail$running, c=0, p=2, h=24, kernel = "uniform")
+model_2 <- feols(Employment ~ weeks * disc_id | Retail, data=Q2_data_mo, se="hetero")
+model_2_rd_r <- rdrobust(data_retail$Employment, data_retail$weeks, c=0, p=2, h=25, kernel = "uniform")
+model_2_rd_nr <- rdrobust(data_non_retail$Employment, data_non_retail$weeks, c=0, p=2, h=25, kernel = "uniform")
 
 model_3 <- feols(Employment ~ disc_id * Industry, data = Q2_data_mo, se="hetero")
 
