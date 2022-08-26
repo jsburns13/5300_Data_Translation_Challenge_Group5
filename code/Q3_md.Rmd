@@ -1,0 +1,458 @@
+---
+title: "Q3_EDA and Modeling"
+author: "Andrew Zinkan"
+date: "8/25/2022"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r, warning=FALSE, message=FALSE, echo=FALSE}
+library(ipumsr)
+library(dplyr)
+library(tidyverse)
+library(vtable)
+library(ggplot2)
+library(lubridate)
+library(fixest)
+library(marginaleffects)
+```
+
+```{r}
+load("../code/Q3_Data_Wrangling.RData")
+sumtable(df)
+```
+
+
+## EDA
+_Q: Retail needs to worry about who has money to spend - what has changed about who is working and earning money?_
+
+Adding a final variable `is_employed` which calcifies EMPSTAT in (10, 12) as `employed` and EMPSTAT in (21,22) as `Unemployed`
+```{r}
+df <- df %>% mutate(is_employed = case_when(EMPSTAT == 10 ~ '1', 
+                                            EMPSTAT == 12 ~ '1',
+                                            TRUE ~ '0')) %>% 
+  mutate(is_employed = as.numeric(is_employed))
+```
+
+
+## High Level Requency stats
+The Majority class across the board is employed, no large differences in employment among demographic traits, martial status, or industry is clearly visible.
+
+Because the following factor variables will be used as dummy variables down stream im going to be selective about which ones I keep. I want to avoid making a dummy variable where a single person is employed in a niche market for example. 
+```{r}
+# $Note:$ majority class is employed for each race
+ggplot(df, aes(x= RACE, color = factor(is_employed))) + geom_bar()
+```
+
+$Note:$ Looking at break out by race we have some very low count race's that could add noise to our data and create many dummy variables. 
+
+As a retail business (retail market undefined for this project) i would not be concerned so much with niche population demographics but rather the employment demographic as a whole are large groups of individuals. Because retail focuses on a larger audience im going to reduce our sample to to look adjust the top 10 `RACE` demographics in terms of population. 
+
+$Note:$ Filtering data for just our top ten most populated RACE categories.  
+
+```{r, echo=TRUE}
+df %>% 
+  group_by(RACE) %>% 
+  summarise(rec_count = n()) %>% 
+  arrange(., desc(rec_count))
+
+df <- df %>% 
+  filter(RACE == c(100,200,300,651,802,652,801,803,805,804))
+```
+```{r}
+
+ggplot(df, aes(x= indname, color = factor(is_employed))) + geom_bar()
+```
+
+$Note:$: Note construction sector have very employees employees, so im going to eliminate this industry from the sample to reduce noise. 
+```{r}
+
+ggplot(df, aes(x= Age_broad, color = factor(is_employed))) + geom_bar()
+```
+
+$Note:$: Age shows no large discrepancies, with employment. 
+
+```{r}
+ggplot(df, aes(x= SEX, color = factor(is_employed))) + geom_bar()
+```
+
+$Note:$: Sex shows no large discrepancies, with employment.
+
+```{r}
+ggplot(df, aes(x= MARST, color = factor(is_employed))) + geom_bar()
+```
+
+$Note:$: Mirage status shows no large discrepancies, with employment.
+
+***
+Next I want to look at our data and the employment change overtime. 
+
+### _Drop in total employment_
+
+```{r}
+agg <- df %>% 
+  group_by(yearmo) %>% 
+  summarise(employed_count = sum(as.numeric(is_employed))) %>% 
+  arrange(., yearmo)
+
+ggplot(data=agg, aes(y = employed_count, x = yearmo))+
+  geom_line(alpha = 0.6)+
+  geom_vline(xintercept = 202003, colour="#BB0000")+
+  labs(y = 'Count of Employeed', x = 'Time')
+```
+
+$Note:$ The large fall right after the start of covid followed by a large uptick 
+***
+
+Do to the volatility and scale I also want to look at the employment variation as % changes to capture a more normalized metric. 
+### _By percentage change to normalize the change_
+```{r, warning=FALSE}
+agg <- df %>% 
+  group_by(yearmo) %>% 
+  summarise(employed_count = sum(as.numeric(is_employed))) %>% 
+  arrange(., yearmo)
+
+agg <- agg %>% 
+  mutate(lag1_value = lag(employed_count, n=1, order_by=yearmo)) %>% 
+  mutate(prc_change_emp = (employed_count-lag1_value)/ lag1_value)
+
+ggplot(data=agg, aes(y = prc_change_emp , x = yearmo))+
+  geom_line(alpha = 0.6)+
+  geom_vline(xintercept = 202003, colour="#BB0000")+
+  labs(y = 'Count of Employeed', x = 'Time')
+```
+
+$Note:$ Notice about a 30% fall in total employment count following covid then followed by about a 15% rebound immediately after. 
+
+***
+
+# Employment before and after covid
+In this section we want to look at how employment number and the % change in employment fluctuates during covid
+
+### _Drop by Race_
+
+```{r, message=FALSE}
+agg <- df %>% 
+  group_by(yearmo, RACE) %>% 
+  summarise(employed_count = sum(as.numeric(is_employed))) %>% 
+  filter(yearmo >= 201950) %>% 
+  filter(yearmo <= 202020) %>%
+  arrange(.,RACE, yearmo)
+
+ggplot(data=agg, aes(y = log(employed_count), x = yearmo))+
+  geom_line(alpha = 0.6, aes(color = factor(RACE)))+
+  geom_vline(xintercept = 202003)+
+  labs(y = 'Count of Employeed', x = 'Time', color = 'RACE')
+```
+
+$Note:$ Most races show about a similar level of employment drop, however some races in terms of over all count are more employed to begin with, so a similar drop in employment numbers across race might not really be proportional. 
+
+***
+
+So to examine this in more detial lets look at the the % change overtime by race. 
+
+### _% Drop by RACE_
+```{r, echo= FALSE, message= FALSE, warning=FALSE}
+agg <- df %>% 
+  group_by(yearmo, RACE) %>% 
+  summarise(employed_count = sum(as.numeric(is_employed))) %>% 
+  # filter(RACE == c(100,200,300,651,652)) %>% 
+  filter(yearmo >= 201950) %>% 
+  filter(yearmo <= 202020) %>%
+  arrange(., yearmo)
+  
+agg <- agg %>% 
+  group_by(RACE) %>% 
+  mutate(lag1_value = lag(employed_count, n=1, order_by= yearmo)) %>% 
+  mutate(prc_change_emp = (employed_count-lag1_value)/ lag1_value) %>% 
+  arrange(., RACE, yearmo)
+
+ggplot(data=agg, aes(y = prc_change_emp, x = yearmo))+
+  geom_line(alpha = 0.6, aes(color = factor(RACE)))+
+  geom_vline(xintercept = 202003, colour="#BB0000")+
+  labs(y = 'Count of Employeed', x = 'Time', color = 'RACE')
+```
+
+$Note:$ that while some races stay steady some races show high fluctuations after covid. _Some of these are also races with small sample size so a 1 person change in employment makes a large delta in this graph_.
+
+
+### _Drop by indname_
+```{r, message=FALSE}
+agg <- df %>% 
+  group_by(yearmo, indname) %>% 
+  summarise(employed_count = sum(as.numeric(is_employed))) %>% 
+  filter(yearmo >= 201950) %>% 
+  filter(yearmo <= 202020) %>%
+  arrange(.,indname, yearmo)
+
+ggplot(data=agg, aes(y = employed_count, x = yearmo))+
+  geom_line(alpha = 0.6, aes(color = factor(indname)))+
+  geom_vline(xintercept = 202003)+
+  labs(y = 'Count of Employeed', x = 'Time', color = 'Industry Name')
+```
+
+$Note:$ that NA takes a majority representation in our data set and constructions takes a very small sample set. 
+
+### _% Drop by indname_
+Taking a look by industry type
+```{r, message=FALSE}
+agg <- df %>% 
+  group_by(yearmo, indname) %>% 
+  summarise(employed_count = sum(as.numeric(is_employed))) %>% 
+  filter(yearmo >= 201950) %>% 
+  filter(yearmo <= 202020) %>%
+  arrange(., yearmo)
+
+agg <- agg %>% 
+  group_by(indname) %>% 
+  mutate(lag1_value = lag(employed_count, n=1, order_by= yearmo)) %>% 
+  mutate(prc_change_emp = (employed_count-lag1_value)/ lag1_value) %>% 
+  arrange(., indname, yearmo)
+
+ggplot(data=agg, aes(y = prc_change_emp, x = yearmo))+
+  geom_line(alpha = 0.6, aes(color = factor(indname)))+
+  geom_vline(xintercept = 202003, colour="#BB0000")+
+  labs(y = 'Count of Employeed', x = 'Time', color = 'indname')
+```
+
+$Note:$ This graph shows a more normalized representation of each industry. Assuming that `NA` is a catch all for anything that's not `Agriculture, Forestry, etc`, or  `Construction`, or `Transportation` NA would serve as the market indicator representing to all other jobs aside from the ones listed here. If we use NA as the market norm across industry we can see that transportation and Agriculture follow the market employment trend pretty closely, however constructions does not. 
+
+Construction though also has a very small sample size and a small change in the number employed can make the the % change look mosr sever that it is (which is the case here)
+
+### _Drop by age group_
+```{r, message=FALSE}
+agg <- df %>% 
+  group_by(yearmo,Age_broad) %>% 
+  summarise(employed_count = sum(as.numeric(is_employed))) %>% 
+  filter(yearmo >= 201950) %>% 
+  filter(yearmo <= 202020) %>%
+  arrange(.,Age_broad, yearmo)
+
+ggplot(data=agg, aes(y = employed_count, x = yearmo))+
+  geom_line(alpha = 0.6, aes(color = factor(Age_broad)))+
+  geom_vline(xintercept = 202003)+
+  labs(y = 'Count of Employeed', x = 'Time', color = 'Age_broad')
+```
+### _% Drop by age group_
+```{r, message=FALSE}
+agg <- df %>% 
+  group_by(yearmo, Age_broad) %>% 
+  summarise(employed_count = sum(as.numeric(is_employed))) %>%
+  filter(yearmo >= 201950) %>% 
+  filter(yearmo <= 202020) %>%
+  arrange(., yearmo)
+
+agg <- agg %>% 
+  group_by(Age_broad) %>% 
+  mutate(lag1_value = lag(employed_count, n=1, order_by= yearmo)) %>% 
+  mutate(prc_change_emp = (employed_count-lag1_value)/ lag1_value) %>% 
+  arrange(., Age_broad, yearmo)
+
+ggplot(data=agg, aes(y = prc_change_emp, x = yearmo))+
+  geom_line(alpha = 0.6, aes(color = factor(Age_broad)))+
+  geom_vline(xintercept = 202003, colour="#BB0000")+
+  labs(y = 'Count of Employeed', x = 'Time')
+```
+
+$Note:$ After looking at the age groups graphs we can see that the change across age groups seems to be highly correlated to eachother, indicating that one age group does not behave systematically different than that of another.  
+
+### _Drop by sex_
+```{r, message=FALSE}
+agg <- df %>% 
+  group_by(yearmo,SEX) %>% 
+  summarise(employed_count = sum(as.numeric(is_employed))) %>% 
+  filter(yearmo >= 201950) %>% 
+  filter(yearmo <= 202020) %>%
+  arrange(.,SEX, yearmo)
+
+ggplot(data=agg, aes(y = employed_count, x = yearmo))+
+  geom_line(alpha = 0.6, aes(color = factor(SEX)))+
+  geom_vline(xintercept = 202003)+
+  labs(y = 'Count of Employeed', x = 'Time', color = 'SEX')
+```  
+# _% Drop by sex_
+```{r, message=FALSE}
+agg <- df %>% 
+  group_by(yearmo, SEX) %>% 
+  summarise(employed_count = sum(as.numeric(is_employed))) %>%
+  filter(yearmo >= 201950) %>% 
+  filter(yearmo <= 202020) %>%
+  arrange(., yearmo)
+
+agg <- agg %>% 
+  group_by(SEX) %>% 
+  mutate(lag1_value = lag(employed_count, n=1, order_by= yearmo)) %>% 
+  mutate(prc_change_emp = (employed_count-lag1_value)/ lag1_value) %>% 
+  arrange(., SEX, yearmo)
+
+ggplot(data=agg, aes(y = prc_change_emp, x = yearmo))+
+  geom_line(alpha = 0.6, aes(color = factor(SEX)))+
+  geom_vline(xintercept = 202003, colour="#BB0000")+
+  labs(y = 'Count of Employeed', x = 'Time')
+```
+
+$Note:$ Employment change across sex is also correlated to each other indicating that one group does not behave systematically different than that of another. 
+
+### _ Drop by marital status_
+```{r, message=FALSE}
+agg <- df %>% 
+  group_by(yearmo, MARST) %>% 
+  summarise(employed_count = sum(as.numeric(is_employed))) %>% 
+  filter(yearmo >= 201950) %>% 
+  filter(yearmo <= 202020) %>%
+  arrange(.,MARST, yearmo)
+
+ggplot(data=agg, aes(y = employed_count, x = yearmo))+
+  geom_line(alpha = 0.6, aes(color = factor(MARST)))+
+  geom_vline(xintercept = 202003)+
+  labs(y = 'Count of Employeed', x = 'Time', color = 'MARST')
+```
+### _% Drop by marital status_
+```{r, message=FALSE}
+agg <- df %>% 
+  group_by(yearmo, MARST) %>% 
+  summarise(employed_count = sum(as.numeric(is_employed))) %>%
+  filter(yearmo >= 201950) %>% 
+  filter(yearmo <= 202020) %>%
+  arrange(., yearmo)
+
+agg <- agg %>% 
+  group_by(MARST) %>% 
+  mutate(lag1_value = lag(employed_count, n=1, order_by= yearmo)) %>% 
+  mutate(prc_change_emp = (employed_count-lag1_value)/ lag1_value) %>% 
+  arrange(., MARST, yearmo)
+
+ggplot(data=agg, aes(y = prc_change_emp, x = yearmo))+
+  geom_line(alpha = 0.6, aes(color = factor(MARST)))+
+  geom_vline(xintercept = 202003, colour="#BB0000")+
+  labs(y = 'Count of Employeed', x = 'Time')
+```
+
+$Note:$ Employment change across marital is also correlated to each other indicating that one group does not behave systematically different than that of another.  
+
+# Modeling 
+
+### _binary effects (no interaction term)_
+The below models simply linear models with factor variables. This model does _NOT_ look at pre and post covid differences, it is simply looking at the factor's coefficients on employment as it applies to both pre and post covid.
+```{r}
+lpm1 <- feols(is_employed ~ factor(RACE) + factor(SEX) + factor(Age_broad) + factor(MARST) + factor(Education), 
+              data = df, se='hetero')
+
+etable(lpm1, digits = 3)
+```
+$Note:$ 
+- RACE Categories Coefs have a negative effect on employment regardless of if it was pre or post covid, relative to the `RACE 100` category which is "white". 
+- Marital status classes are statistically significant and have a negative coefficient, relative to that of the `Marital status 1` which is "Married, spouse present".
+- Age groups have little to no statistical significance across age groups and same with sex.  
+
+
+## Predicted values
+### _RACE_
+```{r}
+df <- df %>% 
+  mutate(lpm_fitted = predict(lpm1))
+
+ggplot(data = df, mapping = aes(x=RACE, y=lpm_fitted))+
+  geom_point()+
+  geom_smooth(color = 'red', se=FALSE)+
+  theme_bw()
+```
+ This graph shows the predicted value for each race category. $Note:$ that Certain races are have a lower predicted liklyhood for employment status to employeed.
+
+### _Education_
+```{r}
+ggplot(data = df, mapping = aes(x=Education, y=lpm_fitted))+
+  geom_point()+
+  geom_smooth(color = 'red', se=FALSE)+
+  theme_bw()
+```
+$Note:$ a large difference in doctorate level but not a huge difference between high school and undergrad
+
+### _MARST_
+```{r}
+ggplot(data = df, mapping = aes(x=MARST, y=lpm_fitted))+
+  geom_point()+
+  geom_smooth(color = 'red', se=FALSE)+
+  theme_bw()
+```
+$Note:$ Fairly constant predictive value acorss marital status but notice that 1 (married, spouce present) have the highest predictive probability and 3 (separated) and 6 (single) have the lowest predicted probability. 
+
+***
+
+
+### Modeling with interaction term
+make dummy for education
+```{r}
+doctor <- ifelse(df$Education == 'doctorate', 1, 0)
+bachelors <- ifelse(df$Education == 'college/associate/bachelor', 1, 0)
+highschool <- ifelse(df$Education == 'high school or lower', 1, 0)
+
+dummy_df <- data.frame(is_employed = df$is_employed,
+                       COVIDSTATUS = df$COVIDSTATUS,
+                       doctor = doctor,
+                       bachelors = bachelors,
+                       highschool= highschool)
+
+lpm3 <- feols(is_employed ~ COVIDSTATUS, data = dummy_df, se='hetero')
+lpm4 <- feols(is_employed ~ doctor + COVIDSTATUS + COVIDSTATUS:doctor, data = dummy_df, se='hetero')
+lpm5 <- feols(is_employed ~ bachelors + COVIDSTATUS + COVIDSTATUS:bachelors, data = dummy_df, se='hetero')
+lpm6 <- feols(is_employed ~ highschool + COVIDSTATUS + COVIDSTATUS:highschool, data = dummy_df, se='hetero')
+etable(lpm3,lpm4,lpm5, lpm6)
+```
+
+_Interpretation_:
+We have an intercept for our index variable at 0.9288 which is statistically significant
+
+Coefficient on "COVIDSTATUSpre-covid" by its self:
+"COVIDSTATUSpre-covid" = 0.0408*** indicating that before covid there was a 4.08 percentage point higher employment status regardless of education or any other factor. This variable represents the effect of covid on employment number.
+
+Coefficient "doctor" by its self = 0.0482*** indicating that by having a doctorate degree post covid you have 4.07 percentage point increase in the employment status, which loosely translated to likely hood in this case, however if you are a doctor pre covid you would get a 1.91 percentage point decrease in employment relative to the post covid status. The effect of being a doctor over not beeing a doctor is (4.07 - 1.91) 2.16 percentage point increase in employment
+
+A similar effect is noticed for bachelors degree students are well however the opposite reaction is noticed for highschool level of educations which is also statistical significant. 
+
+This imply that higher education may have actual benefited in terms of employment status relative to pre covid. 
+
+$Note:$ This is statistical significant at the **0.1%** level
+
+### _RACE_
+```{r}
+lpm9 <- feols(is_employed ~ COVIDSTATUS, data = df, se='hetero')
+lpm10 <- feols(is_employed ~ factor(RACE) + COVIDSTATUS + COVIDSTATUS:RACE, data = df, se='hetero')
+
+etable(lpm9,lpm10)
+```
+_Interpretation_:
+This is an identical interpetation as aboce but for the rave variable. 
+
+Coefficient on "COVIDSTATUSpre-covid" by its self:
+"COVIDSTATUSpre-covid" = 0.0408*** indicating that before covid there was a 4.08 percentage point higher employment status regardless of education or any other factor. This variable represents the effect of covid on employment number.
+
+Coefficients for the COVIDSTATUSpost-covid  x race factors (200 "Black", and 651 "Asian") show a statistically significant and negative coefficient. Implying that the employment percentage points were lower post covide relitive to "white" people.  
+
+This imply that the effect of covid on employment has a stronger effect on select races.
+
+
+### _Matital Status_
+```{r}
+lpm11 <- feols(is_employed ~ COVIDSTATUS, data = df, se='hetero')
+lpm12 <- feols(is_employed ~ factor(MARST) + COVIDSTATUS + COVIDSTATUS:MARST, data = df, se='hetero')
+
+etable(lpm11,lpm12)
+```
+_Interpretation_:
+
+Marital status post covid has two statistically significant interaction terms "COVIDSTATUSpost-covid x MARST3" which is for "seperated" status and "COVIDSTATUSpost-covid x MARST6" for "single status". Both these variables have a negative coefficient indicating here that the effect of being single or separated post covid on employment is more negitive than that of a married person post covid.  
+
+# Summary
+
+Based on our RACE and Educations and marital status variables which showed the most variance by group around we can infer that there is a difference pre and post labor force based on these factors. The effect for black and Asian groups repetitively impact employment post covid relative to that of the white group.  Educational standards are impacted disproportionately, we actually see and increase in employment percentage points for doctorate and bachelors degrees but a decrease in high school equivalence or less. Lastly we can also differences across marital statu, not so much in the interact terms effect but it does help identify who is and who isnt employed, the propotion employeed between marital status may not change much due to the effect of covide but it still shows the dominant employment group. 
+
+Based on this analysis i would recommend a retailer (who is profit seeking) post covid to focus on marking efforts geared to towards an educated, married, and white demographics as the impact of covid on that demographic has been lesser than that of other demographics when looking at the interaction effect. If the retailers goal is to retain business by marketing to those that are employeed post covid that best way to do that would be to market to educated, married, and white demographics. 
+
+
+
+
+

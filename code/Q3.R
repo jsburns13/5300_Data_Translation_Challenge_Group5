@@ -1,9 +1,12 @@
-install.packages("ipumsr")
+# install.packages("ipumsr")
 library(ipumsr)
 library(dplyr)
 library(tidyverse)
 library(vtable)
 library(ggplot2)
+library(lubridate)
+library(fixest)
+library(marginaleffects)
 
 # NOTE: To load data, you must download both the extract's data and the DDI
 # and also set the working directory to the folder with these files (or change the path below).
@@ -263,4 +266,6 @@ ggplot(df_unemployed_experienced_Occupation, aes(x = yearmo, y = Count, col = Oc
 #Plot df_unemployed_new_OCC to see how's data look like [Occupation of all new workers are NA]
 ggplot(df_unemployed_new_Occupation, aes(x = yearmo, y = Count, col = Occupation)) + geom_point() + 
   geom_smooth(method = 'lm') + geom_vline(xintercept = 202003) + ggtitle("Unemployed New worker-MARST")
+
+save(df, file =  "code/Q3_Data_Wrangling.RData")
 
