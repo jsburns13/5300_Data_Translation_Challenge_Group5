@@ -8,22 +8,140 @@ date: "2022-08-26"
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-## R Markdown
+## Libraries
 
-This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+This section loads all required libraries
 
-When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
-
-```{r cars}
-summary(cars)
+```{Libraries}
+library(fixest)
+library(tidyverse)
+library(vtable)
+library(lubridate)
+library(ipumsr)
+library(rdrobust)
+library(dplyr)
+library(ggplot2)
+library(marginaleffects)
 ```
 
-## Including Plots
+## Data Preperation and Wrangling
 
-You can also embed plots, for example:
+We pull all of our data from the IPUMS release of the Current Population Survey. We are interested in tracking employment impacts of the Covid Pandemic and therefore have pulled employment data from 2019 through 2021
 
-```{r pressure, echo=FALSE}
-plot(pressure)
+```{Data Preperation}
+ddi <- read_ipums_ddi("../data/cps_00004.xml")
+emp_data <- read_ipums_micro(ddi)
+
+# Filtering Dataset to Employed Individuals between 2019 and 2021 and creating an "Employment" flag to track employment status. Also filtering out military as they are not typically considered private sector "employed"
+emp_data <- emp_data %>% 
+  drop_na(IND1990) %>%
+  filter(YEAR>=2019 & YEAR <= 2021 & IND1990 > 000 & IND1990 < 940) %>%
+  mutate(Employment = case_when(
+    EMPSTAT == 10 | EMPSTAT == 12 ~ 1,
+    TRUE ~ 0
+  )) %>%
+  
+#Adding date column based off year and month of data and then using date field to calculate the week delta from the start of Covid, utilizing this field to create a flag to track whether a value is Pre-Covid or Post-Covid.
+  mutate(date = ISOdate(YEAR,MONTH,1)) %>%
+  mutate(weeks = as.numeric(difftime(date,ISOdate(2020,3,1), units="weeks"), units="weeks")) %>%
+  filter(MONTH != 3) %>%
+  mutate(disc_id = case_when(
+    weeks < 0 ~ 0,
+    TRUE ~ 1
+  )) %>%
+  # https://cps.ipums.org/cps/codes/ind_2014_codes.shtml
+  mutate(Industry = as.factor(case_when(
+    IND1990 > 000 & IND1990 <= 032 ~ "AGRICULTURE, FORESTRY, AND FISHERIES",
+    IND1990 >= 040 & IND1990 <= 050 ~ "MINING",
+    IND1990 == 060 ~ "CONSTRUCTION",
+    IND1990 >= 100 & IND1990 <= 392 ~ "MANUFACTURING",
+    IND1990 >= 400 & IND1990 <= 472 ~ "TRANSPORTATION, COMMUNICATIONS, AND OTHER PUBLIC UTILITIES",
+    IND1990 >= 500 & IND1990 <= 571 ~ "WHOLESALE TRADE",
+    IND1990 >= 580 & IND1990 <= 691 ~ "RETAIL TRADE",
+    IND1990 >= 700 & IND1990 <= 712 ~ "FINANCE, INSURANCE, AND REAL ESTATE",
+    IND1990 >= 721 & IND1990 <= 760 ~ "BUSINESS AND REPAIR SERVICES",
+    IND1990 >= 761 & IND1990 <= 791 ~ "PERSONAL SERVICES",
+    IND1990 >= 800 & IND1990 <= 810 ~ "ENTERTAINMENT AND RECREATION SERVICES",
+    IND1990 >= 812 & IND1990 <= 893 ~ "PROFESSIONAL AND RELATED SERVICES",
+    IND1990 >= 900 & IND1990 <= 932 ~ "PUBLIC ADMINISTRATION",
+    TRUE ~ "NIU"
+  ))) %>%
+  filter(Industry != "NIU") %>%
+  mutate(Retail = Industry == "RETAIL TRADE")
+
+# Aggregating monthly data and ensuring
+Q2_data_mo <- emp_data %>%
+  filter(Industry != "NIU" & Industry != "ACTIVE DUTY MILITARY") %>%
+  group_by(Industry, date, Retail, weeks, disc_id) %>%
+  summarise(Employment = mean(Employment))
+
+# Isolating retail
+data_retail <- emp_data %>%
+  filter(Retail == 1)
+
+# Isolating non-retail
+data_non_retail <- emp_data %>%
+  filter(Retail != 1)
+
+# Summarizing by retail[T/F] by date
+data_ret_summ <- emp_data %>%
+  group_by(date, weeks, Retail) %>%
+  summarise(Employment=mean(Employment))
+
 ```
 
-Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+## Question One - Covid and Retail
+
+We investigate the question "How has COVID affected the health of the retail industry, as measured by employment?" below
+
+```{Question One}
+q1_data <- data_retail %>% group_by(date, disc_id) %>%
+  summarize(monthly_employment = sum(Employment))
+```
+
+The first part of the analysis utilized employment data to explore the effect of COVID on the health of the retail industry. The sample consisted of individuals in the retail industry aged 25 to 65 who were classified as part of the labor force (employed or unemployed) during the span of April 2019 to March 2021. Individuals were assigned either a value of 1 or 0 depending on their employment status for each month. These values were then aggregated at the monthly grain to calculate total employment. As the COVID lockdown was staggered throughout March 2021, the month was removed from the analysis. A binary variable for the lockdown months (April 2020 to March 2021) was created as the treatment variable for the model.
+
+```{r}
+q1_data %>% ggplot(aes(date, monthly_employment)) +
+  geom_line(color = "dark blue") +
+  ggtitle("Retail Employment: April 2019 to February 2021") +
+  geom_vline(xintercept = as.Date("2020-02-01") - 0.5,
+             col = "orange",
+             linetype = "dashed"
+  ) +
+  annotate(geom = "text",
+           x = as.Date("2020-02-01") -50,
+           y = 3400,
+           label = "Lockdown",
+           color = "orange") +
+  xlab("Date (excludes March 2020)") +
+  ylab("Monthly Employment")
+```
+
+```{r}
+q1_data_month <- q1_data %>%
+  filter(month(date) > 2) %>%
+  mutate(month = factor(month(date),levels = c(4:12)),
+         year = factor(year(date)),
+         covid_era = case_when(covid_era == 1 ~ "Post",
+                               TRUE ~ "Pre"))
+```
+
+```{r}
+q1_data_month %>% ggplot(aes(x = month, 
+                             y = monthly_employment,
+                             col = covid_era)) +
+  geom_point() + 
+  ggtitle("Monthly Employment Trends: April to December - 2019/2020") +
+  labs(col = "Lockdown")
+```
+
+```{r}
+q1_m1 <-  q1_data %>% feols(monthly_employment ~ covid_era)
+
+etable(q1_m1)
+```
+
+The retail industry saw a drop in monthly employment of 1,298 people post lockdown, a decrease of 25.8%. This was statistically significant at an alpha of 0.001. Thus, based on the model, there is strong evidence that the lockdown had a negative impact on the health of the retail industry. 
+
+This conclusion is contingent on the assumption that the drop was due to the lockdown and not other factors. While retail employment was trending downwards in the months leading up to the lockdown, this assumption is backed up in the "Retail Employment" graph which shows a steep decline in employment following the Lockdown measures in March 2020. Additionally, employment then proceeds to climb upwards as stores reopened in the months following. The "Monthly Employment Trends" graph further supports this assumption, as after lockdown restrictions eased up throughout the summer of 2020, September to December have similar trends compared to the same span in the previous year.
