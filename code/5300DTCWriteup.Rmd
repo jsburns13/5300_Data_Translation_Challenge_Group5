@@ -41,7 +41,7 @@ emp_data <- emp_data %>%
     TRUE ~ 0
   )) %>%
   
-#Adding date column based off year and month of data and then using date field to calculate the week delta from the start of Covid, utilizing this field to create a flag to track whether a value is Pre-Covid or Post-Covid.
+#Adding date column based off year and month of data and then using date field to calculate the week delta from the start of Covid, (all months after March 2020), utilizing this field to create a flag to track whether a value is Pre-Covid or Post-Covid.
   mutate(date = ISOdate(YEAR,MONTH,1)) %>%
   mutate(weeks = as.numeric(difftime(date,ISOdate(2020,3,1), units="weeks"), units="weeks")) %>%
   filter(MONTH != 3) %>%
@@ -69,12 +69,6 @@ emp_data <- emp_data %>%
   filter(Industry != "NIU") %>%
   mutate(Retail = Industry == "RETAIL TRADE")
 
-# Aggregating monthly data and ensuring
-Q2_data_mo <- emp_data %>%
-  filter(Industry != "NIU" & Industry != "ACTIVE DUTY MILITARY") %>%
-  group_by(Industry, date, Retail, weeks, disc_id) %>%
-  summarise(Employment = mean(Employment))
-
 # Isolating retail
 data_retail <- emp_data %>%
   filter(Retail == 1)
@@ -90,11 +84,12 @@ data_ret_summ <- emp_data %>%
 
 ```
 
-## Question One - Covid and Retail
+## Question One - The impact of Covid on Retail Employment
 
 We investigate the question "How has COVID affected the health of the retail industry, as measured by employment?" below
 
-```{Question One}
+```{Data Summary}
+#We roll up employment to the month level for analysis
 q1_data <- data_retail %>% group_by(date, disc_id) %>%
   summarize(monthly_employment = sum(Employment))
 ```
@@ -145,3 +140,151 @@ etable(q1_m1)
 The retail industry saw a drop in monthly employment of 1,298 people post lockdown, a decrease of 25.8%. This was statistically significant at an alpha of 0.001. Thus, based on the model, there is strong evidence that the lockdown had a negative impact on the health of the retail industry. 
 
 This conclusion is contingent on the assumption that the drop was due to the lockdown and not other factors. While retail employment was trending downwards in the months leading up to the lockdown, this assumption is backed up in the "Retail Employment" graph which shows a steep decline in employment following the Lockdown measures in March 2020. Additionally, employment then proceeds to climb upwards as stores reopened in the months following. The "Monthly Employment Trends" graph further supports this assumption, as after lockdown restrictions eased up throughout the summer of 2020, September to December have similar trends compared to the same span in the previous year.
+
+##Question Two - Covid Impact on Retail vs Other Organizations
+
+The second research question is investigating if retail employment differed from other
+industries. Several data transformations were generated to compare:
+
+  1. Industry groupings based on the IND1990 categories found here:
+      https://cps.ipums.org/cps-action/variables/IND1990#codes_section
+  2. Filtering out Not In Universe and Military jobs to focus on the private sector 
+  3. A binary variable that is TRUE when the industry is retail, and FALSE otherwise
+  4. Aggregated monthly employment rates by industry
+  5. Since the lock down began mid-March, all data from March 2020 is filtered
+      out to prevent issues due to reporting inconsistencies
+
+For reference, the average employment rates by industry are as follows:
+
+```{r code}
+
+# Aggregating monthly data and ensuring
+Q2_data_mo <- emp_data %>%
+  filter(Industry != "NIU" & Industry != "ACTIVE DUTY MILITARY") %>%
+  group_by(Industry, date, Retail, weeks, disc_id) %>%
+  summarise(Employment = mean(Employment))
+
+Q2_data_mo %>%
+  group_by(Industry) %>%
+  summarize("Employment Rate" = mean(Employment))
+```
+
+## Plots
+
+A graph of each industry's employment rate over time shows differences across
+industries:
+
+```{r}
+ggplot(data = Q2_data_mo, aes(x=date, y=Employment, colour=Industry, group=Industry)) +
+  geom_point() + geom_line()
+```
+
+While retail did not exhibit the strongest declines, it appears to have declined
+drastically more than the strongest and indeed was the third worst according to this graph.
+
+Isolating Retail vs all other industries helps visualize this difference:
+
+```{r}
+ggplot(data=data_ret_summ, aes(x=date, y=Employment, colour=Retail)) +
+  geom_point() +
+  geom_line() +
+  geom_vline(xintercept=ISOdate(2020,3,1))
+```
+While pre-pandemic employment is a bit lower for retail than other industries, the
+overall trend looks very similar. However, the decline immediately after lock downs
+was greater both absolutely and proportionately.
+
+Next, rdplots were generated at first and second orders, for all industries and
+retail alone.
+
+```{r}
+rdplot(Q2_data_mo$Employment, Q2_data_mo$weeks, c=0, p=1, h=24, kernel = "uniform",
+       title = "Linear - All Industries", x.label = "Weeks Since March")
+
+rdplot(Q2_data_mo$Employment, Q2_data_mo$weeks, c=0, p=2, h=25, kernel = "uniform",
+       title = "Second order - All Industries", x.label = "Weeks Since March")
+
+rdplot(data_retail$Employment, data_retail$weeks, c=0, p=2, h=25, kernel = "uniform",
+       title = "Second Order - Retail Only", x.label = "Weeks Since March")
+```
+
+## Models
+
+Several models were created to analyze the pandemic, starting with a fixed effect
+ols model regressing employment by date and pre/post pandemic, with fixed effects
+applied by Industry:
+
+```{r}
+model_1 <- feols(Employment ~ weeks * disc_id | Industry, data=Q2_data_mo, vcov="hetero")
+etable(model_1)
+wald(model_1)
+```
+The Wald test shows statistically significant coefficients by industry, but we can
+investigate further to provide more context via different methods.
+
+Noting that weeks was not individually statistically significant to the model,
+four more models were generated using both rdrobust and feols to compare different
+structures:
+
+```{r}
+model_2 <- feols(Employment ~ weeks * disc_id | Retail, data=Q2_data_mo, se="hetero")
+model_2_rd_r <- rdrobust(data_retail$Employment, data_retail$weeks, c=0, p=2, h=25, kernel = "uniform")
+model_2_rd_nr <- rdrobust(data_non_retail$Employment, data_non_retail$weeks, c=0, p=2, h=25, kernel = "uniform")
+model_3 <- feols(Employment ~ disc_id * Industry, data = Q2_data_mo, se="hetero")
+```
+
+Comparing the three feols() models:
+
+```{r}
+etable(model_1, model_2)
+etable(model_3)
+```
+
+These three models show mostly statistically significant coefficients, and a respectable
+R2 when regressing Employment on disc_id (i.e. has the pandemic happened) and industry
+in model_3.
+
+The rdrobust models allow for more targeted analysis of second order models, controlling
+for retail:
+
+```{r}
+summary(model_2_rd_r, vcov="hetero")
+summary(model_2_rd_nr, vcov="hetero")
+```
+The coefficient for the retail model shows a 24% decrease in employment rate, and
+that of the non-retail model shows a 10% decrease. Comparing these estimates and their
+robust 95% confidence intervals, we see that:
+
+#### Retail employment decreased an estimated 14% more than the private sector
+#### as a whole, which is statistically significant.
+
+Finally, individual models were created for each industry to demonstrate individual
+comparisons. Additional work could be conducted to precisely identify the significance
+of differences between pairs of industries, but the conclusion above was determined
+to sufficiently answer the research question at hand.
+
+```{r}
+IndList <- split(Q2_data_mo, f=Q2_data_mo$Industry)
+model_list <- list()
+rdrobust_list <- list()
+
+for (i in 1:length(IndList)) {
+  indus <- levels(IndList[[i]]$Industry)[i]
+  modelname <- paste0(indus, "_model") %>%
+    replace(" ", "_")
+  
+  model_list[[paste0(indus)]] <- assign(modelname,feols(Employment ~ weeks * disc_id, data=IndList[[i]]))
+  rdrobust_list[[paste0(indus)]] <- assign(modelname,rdrobust(IndList[[i]]$Employment,IndList[[i]]$weeks,c=0,p=2,h=25,kernel="uniform"))
+}
+
+etable(model_list)
+for (i in 1:length(rdrobust_list)) {
+  print(names(rdrobust_list)[i])
+  summary(rdrobust_list[[i]])
+}
+```
+
+Looking at the etable output, we see that only Personal Services and Entertainment
+industries exhibited greater declines in employment than Retail. As noted above,
+additional analysis should be conducted if the magnitude and significant of these
+specific differences is of interest.
