@@ -30,11 +30,8 @@ library(margins)
 We pull all of our data from the IPUMS release of the Current Population Survey. We are interested in tracking employment impacts of the Covid Pandemic and therefore have pulled employment data from 2019 through 2021.
 
 ```{r}
-<<<<<<< HEAD
+
 ddi <- read_ipums_ddi("../data/cps_00006.xml")
-=======
-ddi <- read_ipums_ddi("../data/cps_00004.xml")
->>>>>>> 6a00597d543d4de6ca2ba67239c23f524e6f15d4
 emp_data <- read_ipums_micro(ddi)
 
 # Filtering Dataset to Employed Individuals between 2019 and 2021 and creating an "Employment" flag to track employment status. Also filtering out military as they are not typically considered private sector "employed"
@@ -91,23 +88,15 @@ data_ret_summ <- emp_data %>%
 
 ## Question One - The impact of Covid on Retail Employment
 
-We investigate the question "How has Covid affected the health of the retail industry, as measured by employment?" below.
-
-```{r}
-#We roll up employment to the month level for analysis
-<<<<<<< HEAD
-q1_data <- data_retail %>% group_by(date, post_covid) %>%
-  summarize(monthly_employment = sum(Employment))
-
-=======
-load("../code/Q1_Data_Wrangling.RData")
-sumtable(q1_data)
->>>>>>> 6a00597d543d4de6ca2ba67239c23f524e6f15d4
-```
-
 The first part of the analysis utilized employment data to explore the effect of Covid on the health of the retail industry. The sample consisted of individuals in the retail industry aged 25 to 65 who were classified as part of the labor force (employed or unemployed) during the span of April 2019 to March 2021. Individuals were assigned either a value of 1 or 0 depending on their employment status for each month. These values were then aggregated at the monthly grain to calculate total employment. As the Covid lockdown was staggered throughout March 2021, the month was removed from the analysis. A binary variable for the lockdown months (April 2020 to March 2021) was created as the treatment variable for the model.
 
 ```{r}
+#We roll up employment to the month level for analysis
+q1_data <- data_retail %>% group_by(date, post_covid) %>%
+  summarize(monthly_employment = sum(Employment))
+
+sumtable(q1_data)
+
 q1_data %>% ggplot(aes(date, monthly_employment)) +
   geom_line(color = "dark blue") +
   ggtitle("Retail Employment: April 2019 to February 2021") +
@@ -144,12 +133,12 @@ q1_data_month %>% ggplot(aes(x = month,
 ```
 
 ```{r}
-<<<<<<< HEAD
+
 q1_m1 <-  q1_data %>% feols(monthly_employment ~ post_covid)
 
-=======
+
 q1_m1 <-  q1_data %>% feols(monthly_employment ~ covid_era)
->>>>>>> 6a00597d543d4de6ca2ba67239c23f524e6f15d4
+
 etable(q1_m1)
 ```
 
