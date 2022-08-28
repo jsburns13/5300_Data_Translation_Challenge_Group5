@@ -12,7 +12,7 @@ knitr::opts_chunk$set(echo = TRUE)
 
 This section loads all required libraries
 
-```{Libraries}
+```{r}
 library(fixest)
 library(tidyverse)
 library(vtable)
@@ -28,8 +28,8 @@ library(marginaleffects)
 
 We pull all of our data from the IPUMS release of the Current Population Survey. We are interested in tracking employment impacts of the Covid Pandemic and therefore have pulled employment data from 2019 through 2021
 
-```{Data Preperation}
-ddi <- read_ipums_ddi("../data/cps_00004.xml")
+```{r}
+ddi <- read_ipums_ddi("../data/cps_00006.xml")
 emp_data <- read_ipums_micro(ddi)
 
 # Filtering Dataset to Employed Individuals between 2019 and 2021 and creating an "Employment" flag to track employment status. Also filtering out military as they are not typically considered private sector "employed"
@@ -42,10 +42,10 @@ emp_data <- emp_data %>%
   )) %>%
   
 #Adding date column based off year and month of data and then using date field to calculate the week delta from the start of Covid, (all months after March 2020), utilizing this field to create a flag to track whether a value is Pre-Covid or Post-Covid.
-  mutate(date = ISOdate(YEAR,MONTH,1)) %>%
+  mutate(date = ymd(paste(YEAR, MONTH, "01"))) %>%
   mutate(weeks = as.numeric(difftime(date,ISOdate(2020,3,1), units="weeks"), units="weeks")) %>%
   filter(MONTH != 3) %>%
-  mutate(disc_id = case_when(
+  mutate(post_covid = case_when(
     weeks < 0 ~ 0,
     TRUE ~ 1
   )) %>%
@@ -88,10 +88,11 @@ data_ret_summ <- emp_data %>%
 
 We investigate the question "How has COVID affected the health of the retail industry, as measured by employment?" below
 
-```{Data Summary}
+```{r}
 #We roll up employment to the month level for analysis
-q1_data <- data_retail %>% group_by(date, disc_id) %>%
+q1_data <- data_retail %>% group_by(date, post_covid) %>%
   summarize(monthly_employment = sum(Employment))
+
 ```
 
 The first part of the analysis utilized employment data to explore the effect of COVID on the health of the retail industry. The sample consisted of individuals in the retail industry aged 25 to 65 who were classified as part of the labor force (employed or unemployed) during the span of April 2019 to March 2021. Individuals were assigned either a value of 1 or 0 depending on their employment status for each month. These values were then aggregated at the monthly grain to calculate total employment. As the COVID lockdown was staggered throughout March 2021, the month was removed from the analysis. A binary variable for the lockdown months (April 2020 to March 2021) was created as the treatment variable for the model.
@@ -118,21 +119,21 @@ q1_data_month <- q1_data %>%
   filter(month(date) > 2) %>%
   mutate(month = factor(month(date),levels = c(4:12)),
          year = factor(year(date)),
-         covid_era = case_when(covid_era == 1 ~ "Post",
+         post_covid = case_when(post_covid == 1 ~ "Post",
                                TRUE ~ "Pre"))
 ```
 
 ```{r}
 q1_data_month %>% ggplot(aes(x = month, 
                              y = monthly_employment,
-                             col = covid_era)) +
+                             col = post_covid)) +
   geom_point() + 
   ggtitle("Monthly Employment Trends: April to December - 2019/2020") +
   labs(col = "Lockdown")
 ```
 
 ```{r}
-q1_m1 <-  q1_data %>% feols(monthly_employment ~ covid_era)
+q1_m1 <-  q1_data %>% feols(monthly_employment ~ post_covid)
 
 etable(q1_m1)
 ```
@@ -156,12 +157,12 @@ industries. Several data transformations were generated to compare:
 
 For reference, the average employment rates by industry are as follows:
 
-```{r code}
+```{r}
 
 # Aggregating monthly data and ensuring
 Q2_data_mo <- emp_data %>%
   filter(Industry != "NIU" & Industry != "ACTIVE DUTY MILITARY") %>%
-  group_by(Industry, date, Retail, weeks, disc_id) %>%
+  group_by(Industry, date, Retail, weeks, post_covid) %>%
   summarise(Employment = mean(Employment))
 
 Q2_data_mo %>%
@@ -215,7 +216,7 @@ ols model regressing employment by date and pre/post pandemic, with fixed effect
 applied by Industry:
 
 ```{r}
-model_1 <- feols(Employment ~ weeks * disc_id | Industry, data=Q2_data_mo, vcov="hetero")
+model_1 <- feols(Employment ~ weeks * post_covid | Industry, data=Q2_data_mo, vcov="hetero")
 etable(model_1)
 wald(model_1)
 ```
@@ -227,10 +228,10 @@ four more models were generated using both rdrobust and feols to compare differe
 structures:
 
 ```{r}
-model_2 <- feols(Employment ~ weeks * disc_id | Retail, data=Q2_data_mo, se="hetero")
+model_2 <- feols(Employment ~ weeks * post_covid | Retail, data=Q2_data_mo, se="hetero")
 model_2_rd_r <- rdrobust(data_retail$Employment, data_retail$weeks, c=0, p=2, h=25, kernel = "uniform")
 model_2_rd_nr <- rdrobust(data_non_retail$Employment, data_non_retail$weeks, c=0, p=2, h=25, kernel = "uniform")
-model_3 <- feols(Employment ~ disc_id * Industry, data = Q2_data_mo, se="hetero")
+model_3 <- feols(Employment ~ post_covid * Industry, data = Q2_data_mo, se="hetero")
 ```
 
 Comparing the three feols() models:
@@ -241,7 +242,7 @@ etable(model_3)
 ```
 
 These three models show mostly statistically significant coefficients, and a respectable
-R2 when regressing Employment on disc_id (i.e. has the pandemic happened) and industry
+R2 when regressing Employment on post_covid (i.e. has the pandemic happened) and industry
 in model_3.
 
 The rdrobust models allow for more targeted analysis of second order models, controlling
@@ -273,7 +274,7 @@ for (i in 1:length(IndList)) {
   modelname <- paste0(indus, "_model") %>%
     replace(" ", "_")
   
-  model_list[[paste0(indus)]] <- assign(modelname,feols(Employment ~ weeks * disc_id, data=IndList[[i]]))
+  model_list[[paste0(indus)]] <- assign(modelname,feols(Employment ~ weeks * post_covid, data=IndList[[i]]))
   rdrobust_list[[paste0(indus)]] <- assign(modelname,rdrobust(IndList[[i]]$Employment,IndList[[i]]$weeks,c=0,p=2,h=25,kernel="uniform"))
 }
 
