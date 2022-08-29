@@ -753,11 +753,11 @@ _Interpretation lpm3_
 
 We have an intercept for our index variable at 0.9904 which is statistically significant.
 
-- post_covidTRUE = -0.0438 indicating that the over all effect of covid had a -4.38 percentage point impact on employment.
+- post_covid = -0.0421 indicating that the over all effect of covid had a -4.21 percentage point impact on employment.
 
-- doctor = 0.0254 indicating that the over all effect of having a doctorate has a 2.54 percentage point impact on employment relative to bachelors degree.
+- doctor = 0.0302 indicating that the over all effect of having a doctorate has a 3.02 percentage point impact on employment relative to bachelors degree.
 
-- highschool = -0.0161 indicating that the over all effect of having a highschool education or less has a -1.61 percentage point impact on employment relative to bachelors degree. 
+- highschool = -0.0229 indicating that the over all effect of having a highschool education or less has a -2.29 percentage point impact on employment relative to bachelors degree. 
 
 $Note:$ All of which are statistically significant at the 0.01% level
 
@@ -765,9 +765,9 @@ _Interpretation lpm4_
 
 This model looks at the interaction term between education and post_covid covid. 
 
-- The effect of being a doctor vs having a bachelors post covid is  0.0167 indicating that there is a positive 4.5 percentage point increase associated with being a doctor post covid relative to a bachelors.(this is statistically significant at the 0.01% level). This same effect pre-Covid was 0.0045 or 0.45% percentage points. This results in a Covid effect of 0.04 increase in employment. 
+- The effect of being a doctor vs having a bachelors post Covid is  0.0280 indicating that there is a positive 2.8 percentage point increase associated with being a doctor post covid relative to a bachelors (this is statistically significant at the 0.01% level). This same effect pre-Covid was 1.67% percentage points. 
 
-- The effect of having a highschool degree post Covid is -0.0060 indicating that there is a -0.6 percentage point effect associated with highschool degree post Covid relative to a bachelors (this is statistically significant at the 0.01% level). This same effect pre-covid was -0.0135 or -1.35% percentage points relative to a bachelors degree. This results in a covid effect of 0.75 percentage points for high school degrees on employment.
+- The effect of having a highschool degree post Covid is -0.0156 indicating that there is a -1.56 percentage point effect associated with highschool degree post Covid relative to a bachelors (this is statistically significant at the 0.001% level). This same effect pre-covid was -0.0158 or -1.58% percentage points relative to a bachelors degree.
 
 
 ### _RACE_
@@ -781,16 +781,12 @@ _Interpretation lpm10_
 
 This is an identical interpretation as above but for the `RACE` variables relative to RACE "White". 
 
-- The effect of RACE200 (black) vs RACE100 "White" post Covid is -0.0154 indicating that there is a negative -1.54 percentage point decrease associated with being black post Covid, relative to being white post Covid on employment rates (this is statistically significant at the 0.1% level).
+- The effect of RACE200 (black) vs RACE100 "White" post Covid is -0.0162 indicating that there is a negative -1.62 percentage point decrease associated with being black post Covid, relative to being white post Covid on employment rates (this is statistically significant at the 0.01 level).
 
-- Additionally Race200 (black pre-Covid) had a -2.13 percentage point difference compared to Race 100 (white pre-Covid).
-
-- The effect of RACE300 (American Indian) vs RACE100 "White" post covid is -0.0345 indicating that there is a negative -3.45 percentage point decrease associated with being American Indian post Covid, relative to being white post Covid. (this is statistically significant at the 0.1% level). 
-
-- Additionally Race300 (American Indian pre-covid) had a -4.19 percentage point difference compared to Race 100 (white pre-covid).
+- Additionally Race200 (black pre-Covid) had a -2.18 percentage point difference compared to Race 100 (white pre-Covid).
 
 
-$Note:$ Covid has a stronger effect on these races than white, also not that native american impact was stronger that the impact to the black population by ~ 2x.
+- Additionally Race300 (American Indian pre-covid) had a -0.89 percentage point difference compared to Race 100 (white pre-covid).
 
 
 
@@ -805,11 +801,7 @@ _Interpretation lmp12_
 
 This model looks at the interaction term between marital status and covid. These results are all relative to MARST = 1 or married with spouse present. 
 
-- The effect of having a marital status = 3 (separated) vs status = 1 (married) post covid is -0.0517 indicating that there is a -5.17 percentage point change associated with being separated post Covid (this is statistically significant at the 1% level).
-
-- The coefficient on being separated pre covid is -0.0524 or -5.24 percentage point. 
-
-The same observations occurs for MARST 6 (single) as well resulting in a covid effect of -3.14 percentage points.
+- The coefficient on having a marital status = 6 (single) vs status 1 (married) post Covid was -0.02 or 2 percentage points. This was statisticall significant at 0.001.
 
 # Summary
 
@@ -817,24 +809,21 @@ Based on our analysis of demographics and the effect of covid on each demographi
 
 Out of the select demographic variables used for analysis (RACE, Education, and Marital Status) we can conclude that select RACE groups, Education status, and marital statuses were more heavily impact by Covid. 
 
-Education:
+Education:2
 
-- Doctoral degree was impacted by Covid by 4.5 percentage points.
-- High school degree or less was impacted by COVID by -0.6 percentage points
+- Doctoral degree was impacted by Covid by 3.02 percentage points compared to those with a bachelor's degree
+- High school degree or less was impacted by COVID by -2.29 percentage points
 
 Race:
 
 When compared to RACE100 (white)
 
-- The effect of Covid on a Black individual was -1.54 percentage points relative to white. 
-- The effect of covid on a Native American individual was -3.45 percentage points relative to white.
+- The effect of Covid on a Black individual was -1.62 percentage points relative to white post-Covid. 
+
 
 Marital Status:
 
-When compared to being married.
+- The effect of Covid on a single individual was -2 percentage points compared to a married individual post-Covid
 
-- The effect of Covid on a separated individual was -2.12 percentage points relative to married. 
-- The effect of Covid on a single individual was -3.14 percentage points relative to married. 
-
-Using employment as a pseudo measure for spending power, we would recommend that a retail organization (post Covid) focus their retail and marketing strategy on a select demographic with employment that was less impacted by the effect of Covid. This assumes that the retail organization is not focused on specific target audience or demographic, and that the retail organization in mind prefers quantity of customers, and is profit seeking. In a changing post Covid market environment, we would recommend a retail strategy that's focused on individuals with the following traits: well educated, white, and married. 
+Using employment as a pseudo measure for spending power, we would recommend that a retail organization (post-Covid) focus their retail and marketing strategy on a select demographic with employment that was less impacted by the effect of Covid. This assumes that the retail organization is not focused on specific target audience or demographic, and that the retail organization in mind prefers quantity of customers, and is profit seeking. In a changing post Covid market environment, we would recommend a retail strategy that's focused on individuals with the following traits: well educated, white, and married. 
 
