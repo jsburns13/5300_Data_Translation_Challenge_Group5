@@ -195,7 +195,7 @@ df_unemployed_new_Occupation <- emp_data %>%  group_by(yearmo, Occupation) %>% s
 
 ## Question One - The impact of Covid on Retail Employment
 
-The first part of the analysis utilized employment data to explore the effect of Covid on the health of the retail industry. The sample consisted of individuals in the retail industry aged 25 to 65 who were classified as part of the labor force (employed or unemployed) during the span of April 2019 to March 2021. Individuals were assigned either a value of 1 or 0 depending on their employment status for each month. These values were then aggregated at the monthly grain to calculate total employment. As the Covid lockdown was staggered throughout March 2021, the month was removed from the analysis. A binary variable for the lockdown months (April 2020 to March 2021) was created as the treatment variable for the model.
+The first part of the analysis utilized employment data to explore the effect of Covid on the health of the retail industry.
 
 ```{r, warning=FALSE, message=FALSE}
 #We roll up employment to the month level for analysis
@@ -212,7 +212,7 @@ q1_data %>% ggplot(aes(date, monthly_employment)) +
              linetype = "dashed"
   ) +
   xlab("Date (excludes March 2020)") +
-  ylab("Employment") +
+  ylab("Monthly Employment") +
 
   annotate(geom = "text",
            x = as.Date("2020-02-01") -50,
@@ -251,7 +251,7 @@ The retail industry saw a drop in monthly employment of 1,408 people post-lockdo
 
 This conclusion is contingent on the assumption that the drop was due to the lockdown and not other factors. This assumption is backed up in the "Retail Employment" graph which shows a steep decline in employment following the lockdown measures in March 2020. Additionally, employment then proceeds to climb upwards as stores reopened in the months following. The "Monthly Employment Trends" graph further supports this assumption, as after lockdown restrictions eased up throughout the summer of 2020, September to November have similar trends compared to the same span in the previous year.
 
-##Question Two - Covid Impact on Retail vs Other Organizations
+## Question Two - Covid Impact on Retail vs Other Organizations
 
 The second research question is investigating if retail employment differed from other
 industries. Several data transformations were generated to compare:
@@ -399,7 +399,7 @@ industries exhibited greater declines in employment than Retail. As noted above,
 additional analysis should be conducted if the magnitude and significant of these
 specific differences is of interest.
 
-##Question Three - Changes in employment and consumer spending post-lockdown
+## Question Three - Changes in employment and consumer spending post-lockdown
 
 ## High Level Frequency stats
 Next, frequency stats were added to view the dispersion of our binary dependent variable. As per the table, majority class across the board is employed, and thus there was no large differences in employment among demographic traits, martial status, or industry that was clearly visible.
