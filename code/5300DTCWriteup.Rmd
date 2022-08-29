@@ -34,6 +34,12 @@ We pull all of our data from the IPUMS release of the Current Population Survey.
 ddi <- read_ipums_ddi("../data/cps_00006.xml")
 emp_data <- read_ipums_micro(ddi)
 
+#Performing some initial type conversions to support later calculations.
+emp_data$RACE <- as.character(df$RACE) #Convert RACE into character type
+emp_data$AGE <- as.numeric(emp_data$AGE)#Convert AGE into numeric type
+emp_data$SEX <- as.character(df$SEX) #Convert SEX into character type
+emp_data$MARST <- as.character(df$MARST) #Convert MARST into character type
+
 # Filtering Dataset to Employed Individuals between 2019 and 2021 and creating an "Employment" flag to track employment status. Also filtering out military as they are not typically considered private sector "employed"
 emp_data <- emp_data %>% 
   drop_na(IND1990) %>%
@@ -48,6 +54,7 @@ emp_data <- emp_data %>%
 #Adding date column based off year and month of data and then using date field to calculate the week delta from the start of Covid, (all months after March 2020), utilizing this field to create a flag to track whether a value is Pre-Covid or Post-Covid.
   mutate(date = ymd(paste(YEAR, MONTH, "01"))) %>%
   mutate(weeks = as.numeric(difftime(date,ISOdate(2020,3,1), units="weeks"), units="weeks")) %>%
+  mutate(yearmo = YEAR*100 + MONTH)%>%
   filter(MONTH != 3) %>%
   mutate(post_covid = case_when(
     weeks < 0 ~ 0,
@@ -92,11 +99,37 @@ emp_data <- emp_data %>%
                                    CLASSWKR == 25 ~ 'Federal government employee',
                                    CLASSWKR == 26 ~ 'Armed forces',
                                    CLASSWKR == 27 ~ 'State government employee',
-                                   CLASSWKR == 28 ~ 'Local government employee', TRUE ~ 'NA'))
-
-
+                                   CLASSWKR == 28 ~ 'Local government employee', TRUE ~ 'NA'))%>%
+  mutate(Workstatus = case_when(WKSTAT == 10 ~ 'full time',
+                                           WKSTAT == 11 ~ 'full time',
+                                           WKSTAT == 14 ~ 'full time',
+                                           WKSTAT == 15 ~ 'full time',
+                                           WKSTAT == 12 ~ 'part time',
+                                           WKSTAT == 21 ~ 'part time',
+                                           WKSTAT == 22 ~ 'part time',
+                                           WKSTAT == 40 ~ 'part time',
+                                           WKSTAT == 41 ~ 'part time', TRUE ~ 'Not at work'))%>%
+  mutate(Age_broad = case_when(AGE >= 56 ~ '56-65',
+                                          AGE >= 46 ~ '46-55',
+                                          AGE >= 36 ~ '36-45',
+                                          AGE >= 25 ~ '25-35', TRUE ~ 'NA'))%>%
+  mutate(Occupation = case_when(OCC1990 <= 200 ~ 'MANAGERIAL AND PROFESSIONAL SPECIALTY OCCUPATIONS',
+                                            OCC1990 <= 391 ~ 'TECHNICAL, SALES, AND ADMINISTRATIVE SUPPORT OCCUPATIONS',
+                                            OCC1990 <= 469 ~ 'SERVICE OCCUPATIONS',
+                                            OCC1990 <= 498 ~ 'FARMING, FORESTRY, AND FISHING OCCUPATIONS',
+                                            OCC1990 <= 699 ~ 'PRECISION PRODUCTION, CRAFT, AND REPAIR OCCUPATIONS',
+                                            OCC1990 <= 890 ~ 'OPERATORS, FABRICATORS, AND LABORERS',
+                                            OCC1990 == 905 ~ 'MILITARY OCCUPATIONS', TRUE ~ 'NA'))
   
-# Aggregations
+
+
+#Filter out whoever is not in the laborforce
+df <- df %>% filter(LABFORCE == 2) 
+```
+
+## Aggregations
+
+```{r}
 # Isolating retail
 data_retail <- emp_data %>%
   filter(Retail == 1)
@@ -111,106 +144,50 @@ data_ret_summ <- emp_data %>%
   summarise(Employment=mean(Employment))
 
 #Aggregate the total count of unemployed_experienced_worker, unemployed-new worker
-df_Employed <- emp_data %>% drop_na(Industry) %>% group_by(date, Industry) %>% summarise(Count = sum(Employed))
-df_unemployed_experienced <- emp_data %>% drop_na(Industry) %>% group_by(date, Industry) %>% summarise(Count = sum(Unemployed_experienced_worker))
-df_unemployed_new <- emp_data %>%  group_by(date, Industry) %>% summarise(Count = sum(Unemployed_new_worker))
+df_Employed <- emp_data %>% drop_na(Industry) %>% group_by(yearmo, Industry) %>% summarise(Count = sum(Employed))
+df_unemployed_experienced <- emp_data %>% drop_na(Industry) %>% group_by(yearmo, Industry) %>% summarise(Count = sum(Unemployed_experienced_worker))
+df_unemployed_new <- emp_data %>%  group_by(yearmo, Industry) %>% summarise(Count = sum(Unemployed_new_worker))
 
-#Check the education attainments of employed and umemployed workers
-df_Employed_EDUC <- emp_data %>% filter(Education != 'NA') %>% group_by(date, Education) %>% summarise(Count = sum(Employed))
-df_unemployed_experienced_EDUC <- emp_data %>% filter(Education != 'NA') %>% group_by(date, Education) %>% summarise(Count = sum(Unemployed_experienced_worker))
-df_unemployed_new_EDUC <- emp_data %>% filter(Education != 'NA') %>% group_by(date, Education) %>% summarise(Count = sum(Unemployed_new_worker))
+#Check the education attainments of employed and unemployed workers
+df_Employed_EDUC <- emp_data %>% filter(Education != 'NA') %>% group_by(yearmo, Education) %>% summarise(Count = sum(Employed))
+df_unemployed_experienced_EDUC <- emp_data %>% filter(Education != 'NA') %>% group_by(yearmo, Education) %>% summarise(Count = sum(Unemployed_experienced_worker))
+df_unemployed_new_EDUC <- emp_data %>% filter(Education != 'NA') %>% group_by(yearmo, Education) %>% summarise(Count = sum(Unemployed_new_worker))
 
 #Check the Worker Class of employed and umemployed workers
-df_Employed_WorkerClass <- df %>% filter(ClassofWorker != 'NA') %>% group_by(yearmo, ClassofWorker) %>% summarise(Count = sum(Employed))
-df_unemployed_experienced_WorkerClass <- df %>% filter(ClassofWorker != 'NA') %>% group_by(yearmo, ClassofWorker) %>% summarise(Count = sum(Unemployed_experienced_worker))
-df_unemployed_new_WorkerClass <- df %>% filter(ClassofWorker != 'NA') %>% group_by(yearmo, ClassofWorker) %>% summarise(Count = sum(Unemployed_new_worker))
-
-```
-
-
-
-```{r}
-
-#Filter out whoever is not in the laborforce, create yearmo variable
-df <- df %>% filter(LABFORCE == 2) %>% mutate(yearmo = YEAR*100 + MONTH)
-
-
-
-
-
-
-#Create Workstatus variable to turn WKSTAT into broader range: full-time, part-time
-df <- df %>% mutate(Workstatus = case_when(WKSTAT == 10 ~ 'full time',
-                                           WKSTAT == 11 ~ 'full time',
-                                           WKSTAT == 14 ~ 'full time',
-                                           WKSTAT == 15 ~ 'full time',
-                                           WKSTAT == 12 ~ 'part time',
-                                           WKSTAT == 21 ~ 'part time',
-                                           WKSTAT == 22 ~ 'part time',
-                                           WKSTAT == 40 ~ 'part time',
-                                           WKSTAT == 41 ~ 'part time', TRUE ~ 'Not at work'))
+df_Employed_WorkerClass <- emp_data %>% filter(ClassofWorker != 'NA') %>% group_by(yearmo, ClassofWorker) %>% summarise(Count = sum(Employed))
+df_unemployed_experienced_WorkerClass <- emp_data %>% filter(ClassofWorker != 'NA') %>% group_by(yearmo, ClassofWorker) %>% summarise(Count = sum(Unemployed_experienced_worker))
+df_unemployed_new_WorkerClass <- emp_data %>% filter(ClassofWorker != 'NA') %>% group_by(yearmo, ClassofWorker) %>% summarise(Count = sum(Unemployed_new_worker))
 
 #Check the Work Status of employed and umemployed workers
-df_Employed_Workstatus <- df %>% group_by(yearmo, Workstatus) %>% summarise(Count = sum(Employed))
-df_unemployed_experienced_Workstatus <- df %>% group_by(yearmo, Workstatus) %>% summarise(Count = sum(Unemployed_experienced_worker))
-df_unemployed_new_Workstatus <- df %>% group_by(yearmo, Workstatus) %>% summarise(Count = sum(Unemployed_new_worker))
-
-#Convert age into numeric type
-df$AGE <- as.numeric(df$AGE) # Convert to numeric
-
-#Create Age_broad variable to turn age into broader range
-df <- df %>% mutate(Age_broad = case_when(AGE >= 56 ~ '56-65',
-                                          AGE >= 46 ~ '46-55',
-                                          AGE >= 36 ~ '36-45',
-                                          AGE >= 25 ~ '25-35', TRUE ~ 'NA'))
+df_Employed_Workstatus <- emp_data %>% group_by(yearmo, Workstatus) %>% summarise(Count = sum(Employed))
+df_unemployed_experienced_Workstatus <- emp_data %>% group_by(yearmo, Workstatus) %>% summarise(Count = sum(Unemployed_experienced_worker))
+df_unemployed_new_Workstatus <- emp_data %>% group_by(yearmo, Workstatus) %>% summarise(Count = sum(Unemployed_new_worker))
 
 #Check the different Age range of employed and umemployed workers situation
-df_Employed_Age <- df %>% group_by(yearmo, Age_broad) %>% summarise(Count = sum(Employed))
-df_unemployed_experienced_Age <- df %>% group_by(yearmo, Age_broad) %>% summarise(Count = sum(Unemployed_experienced_worker))
-df_unemployed_new_Age <- df %>% group_by(yearmo, Age_broad) %>% summarise(Count = sum(Unemployed_new_worker))
-
-#Convert SEX into character type
-df$SEX <- as.character(df$SEX) # Convert to character
+df_Employed_Age <- emp_data %>% group_by(yearmo, Age_broad) %>% summarise(Count = sum(Employed))
+df_unemployed_experienced_Age <- emp_data %>% group_by(yearmo, Age_broad) %>% summarise(Count = sum(Unemployed_experienced_worker))
+df_unemployed_new_Age <- emp_data %>% group_by(yearmo, Age_broad) %>% summarise(Count = sum(Unemployed_new_worker))
 
 #Check gender of employed and umemployed workers situation 
-df_Employed_Sex <- df %>% group_by(yearmo, SEX) %>% summarise(Count = sum(Employed))
-df_unemployed_experienced_Sex <- df %>% group_by(yearmo, SEX) %>% summarise(Count = sum(Unemployed_experienced_worker))
-df_unemployed_new_Sex <- df %>% group_by(yearmo, SEX) %>% summarise(Count = sum(Unemployed_new_worker))
-
-
-#Convert RACE into character type
-df$RACE <- as.character(df$RACE) # Convert to character
+df_Employed_Sex <- emp_data %>% group_by(yearmo, SEX) %>% summarise(Count = sum(Employed))
+df_unemployed_experienced_Sex <- emp_data %>% group_by(yearmo, SEX) %>% summarise(Count = sum(Unemployed_experienced_worker))
+df_unemployed_new_Sex <- emp_data %>% group_by(yearmo, SEX) %>% summarise(Count = sum(Unemployed_new_worker))
 
 #Check Race distribution of employed and umemployed workers situation
-df_Employed_Race <- df %>% group_by(yearmo, RACE) %>% summarise(Count = sum(Employed))
-df_unemployed_experienced_RACE <- df %>% group_by(yearmo, RACE) %>% summarise(Count = sum(Unemployed_experienced_worker))
-df_unemployed_new_RACE <- df %>% group_by(yearmo, RACE) %>% summarise(Count = sum(Unemployed_new_worker))
-
-
-#Convert MARST into character type
-df$MARST <- as.character(df$MARST) # Convert to character
+df_Employed_Race <- emp_data %>% group_by(yearmo, RACE) %>% summarise(Count = sum(Employed))
+df_unemployed_experienced_RACE <- emp_data %>% group_by(yearmo, RACE) %>% summarise(Count = sum(Unemployed_experienced_worker))
+df_unemployed_new_RACE <- emp_data %>% group_by(yearmo, RACE) %>% summarise(Count = sum(Unemployed_new_worker))
 
 #Check Marital status
-df_Employed_Marital <- df %>% filter(MARST != 9) %>% group_by(yearmo, MARST) %>% summarise(Count = sum(Employed))
-df_unemployed_experienced_Marital <- df %>% filter(MARST != 9) %>% group_by(yearmo, MARST) %>% summarise(Count = sum(Unemployed_experienced_worker))
-df_unemployed_new_Marital <- df %>% filter(MARST != 9) %>% group_by(yearmo, MARST) %>% summarise(Count = sum(Unemployed_new_worker))
-
-#Create Occupation variable turn OCC1990 into broader category [OCC1990]
-df <- df %>% mutate(Occupation = case_when(OCC1990 <= 200 ~ 'MANAGERIAL AND PROFESSIONAL SPECIALTY OCCUPATIONS',
-                                            OCC1990 <= 391 ~ 'TECHNICAL, SALES, AND ADMINISTRATIVE SUPPORT OCCUPATIONS',
-                                            OCC1990 <= 469 ~ 'SERVICE OCCUPATIONS',
-                                            OCC1990 <= 498 ~ 'FARMING, FORESTRY, AND FISHING OCCUPATIONS',
-                                            OCC1990 <= 699 ~ 'PRECISION PRODUCTION, CRAFT, AND REPAIR OCCUPATIONS',
-                                            OCC1990 <= 890 ~ 'OPERATORS, FABRICATORS, AND LABORERS',
-                                            OCC1990 == 905 ~ 'MILITARY OCCUPATIONS', TRUE ~ 'NA'))
+df_Employed_Marital <- emp_data %>% filter(MARST != 9) %>% group_by(yearmo, MARST) %>% summarise(Count = sum(Employed))
+df_unemployed_experienced_Marital <- emp_data %>% filter(MARST != 9) %>% group_by(yearmo, MARST) %>% summarise(Count = sum(Unemployed_experienced_worker))
+df_unemployed_new_Marital <- emp_data %>% filter(MARST != 9) %>% group_by(yearmo, MARST) %>% summarise(Count = sum(Unemployed_new_worker))
 
 #Check how's the employed, unemployed situation in different occupation 
-df_Employed_Occupation <- df %>% filter(Occupation != 'NA') %>% group_by(yearmo, Occupation) %>% summarise(Count = sum(Employed))
-df_unemployed_experienced_Occupation <- df %>% filter(Occupation != 'NA') %>% group_by(yearmo, Occupation) %>% summarise(Count = sum(Unemployed_experienced_worker))
-df_unemployed_new_Occupation <- df %>%  group_by(yearmo, Occupation) %>% summarise(Count = sum(Unemployed_new_worker))
+df_Employed_Occupation <- emp_data %>% filter(Occupation != 'NA') %>% group_by(yearmo, Occupation) %>% summarise(Count = sum(Employed))
+df_unemployed_experienced_Occupation <- emp_data %>% filter(Occupation != 'NA') %>% group_by(yearmo, Occupation) %>% summarise(Count = sum(Unemployed_experienced_worker))
+df_unemployed_new_Occupation <- emp_data %>%  group_by(yearmo, Occupation) %>% summarise(Count = sum(Unemployed_new_worker))
 
-
-save(df, file =  "code/Q3_Data_Wrangling.RData")
 ```
 
 
@@ -424,19 +401,11 @@ specific differences is of interest.
 
 ##Question Three - Changes in employment and consumer spending post-lockdown
 
-```{r}
-load("../code/Q3_Data_Wrangling.RData")
-sumtable(df)
-```
 
-
-First, a final variable, `is_employed`, was added. which classifies EMPSTAT in (10, 12) as `employed` and EMPSTAT in (21,22) as `Unemployed`, and changed pre post to a bool value. Covid status was also changed to a `bool` value. 
+First, a final variable, `Employment`, was added. which classifies EMPSTAT in (10, 12) as `employed` and EMPSTAT in (21,22) as `Unemployed`, and changed pre post to a bool value. Covid status was also changed to a `bool` value. 
 ```{r}
-df <- df %>% mutate(is_employed = case_when(EMPSTAT == 10 ~ '1', 
-                                            EMPSTAT == 12 ~ '1',
-                                            TRUE ~ '0')) %>% 
-  mutate(is_employed = as.numeric(is_employed))
-df$is_post <- (df$COVIDSTATUS == 'post-covid')
+
+df$post_covid <- (df$COVIDSTATUS == 'post-covid')
 ```
 
 
@@ -445,7 +414,7 @@ Next, frequency stats were added to view the dispersion of our binary dependent 
 
 Because the following factor variables will be used as dummy variables down stream, other variables were removed from the analysis (i.e. to avoid making a dummy variable where a single person is employed in a niche market as this adds more features with little importance). 
 ```{r}
-ggplot(df, aes(x= RACE, color = factor(is_employed))) + geom_bar() + 
+ggplot(df, aes(x= RACE, color = factor(Employment))) + geom_bar() + 
   ggtitle("Count of Employment per Race") +
   xlab("Race")
 ```
@@ -465,7 +434,7 @@ df <- df %>%
 Looking at employment by industry
 ```{r}
 
-ggplot(df, aes(x= indname, color = factor(is_employed))) + geom_bar() + 
+ggplot(df, aes(x= indname, color = factor(Employment))) + geom_bar() + 
   ggtitle("Count of Employment per Industry") +
   theme(axis.text.x = element_text(angle = 90
                                    )) + 
@@ -476,14 +445,14 @@ ggplot(df, aes(x= indname, color = factor(is_employed))) + geom_bar() +
 $Note:$: As Construction sector had very few employees, it was removed from further analysis to reduce noise
 
 ```{r}
-ggplot(df, aes(x= Age_broad, color = factor(is_employed))) + geom_bar() +
+ggplot(df, aes(x= Age_broad, color = factor(Employment))) + geom_bar() +
   ggtitle("Employment per Age Group") +
   xlab("Age Group")
 ```
 
 $Note:$: Age shows no large discrepancies, with employment. 
 ```{r}
-ggplot(df, aes(x= SEX, color = factor(is_employed))) + geom_bar() +
+ggplot(df, aes(x= SEX, color = factor(Employment))) + geom_bar() +
   ggtitle("Employment per Gender") +
   xlab("Gender")
 ```
@@ -491,7 +460,7 @@ ggplot(df, aes(x= SEX, color = factor(is_employed))) + geom_bar() +
 $Note:$: Sex shows no large discrepancies with employment.
 
 ```{r}
-ggplot(df, aes(x= MARST, color = factor(is_employed))) + geom_bar() +
+ggplot(df, aes(x= MARST, color = factor(Employment))) + geom_bar() +
   ggtitle("Employment per Marital Status") +
   xlab("Marital Status")
 ```
@@ -506,7 +475,7 @@ While the above analysis looks at pre and post Covid together the next part exam
 ```{r}
 agg <- df %>% 
   group_by(yearmo) %>% 
-  summarise(employed_count = sum(as.numeric(is_employed))) %>% 
+  summarise(employed_count = sum(as.numeric(Employment))) %>% 
   arrange(., yearmo)
 ggplot(data=agg, aes(y = employed_count, x = yearmo))+
   geom_line(alpha = 0.6)+
@@ -522,7 +491,7 @@ Do to the volatility and scale I also want to look at the employment variation a
 ```{r, warning=FALSE}
 agg <- df %>% 
   group_by(yearmo) %>% 
-  summarise(employed_count = sum(as.numeric(is_employed))) %>% 
+  summarise(employed_count = sum(as.numeric(Employment))) %>% 
   arrange(., yearmo)
 agg <- agg %>% 
   mutate(lag1_value = lag(employed_count, n=1, order_by=yearmo)) %>% 
@@ -545,7 +514,7 @@ In this section, employment numbers and the % change in employment fluctuations 
 ```{r, message=FALSE}
 agg <- df %>% 
   group_by(yearmo, RACE) %>% 
-  summarise(employed_count = sum(as.numeric(is_employed))) %>% 
+  summarise(employed_count = sum(as.numeric(Employment))) %>% 
   filter(yearmo >= 201950) %>% 
   filter(yearmo <= 202020) %>%
   arrange(.,RACE, yearmo)
@@ -565,7 +534,7 @@ To examine this in more detail the % change overtime by race is further explored
 ```{r, echo= FALSE, message= FALSE, warning=FALSE}
 agg <- df %>% 
   group_by(yearmo, RACE) %>% 
-  summarise(employed_count = sum(as.numeric(is_employed))) %>% 
+  summarise(employed_count = sum(as.numeric(Employment))) %>% 
   # filter(RACE == c(100,200,300,651,652)) %>% 
   filter(yearmo >= 201950) %>% 
   filter(yearmo <= 202020) %>%
@@ -589,7 +558,7 @@ $Note:$ While some races stay relatively steady and correlated to each other, ot
 ```{r, message=FALSE}
 agg <- df %>% 
   group_by(yearmo, indname) %>% 
-  summarise(employed_count = sum(as.numeric(is_employed))) %>% 
+  summarise(employed_count = sum(as.numeric(Employment))) %>% 
   filter(yearmo >= 201950) %>% 
   filter(yearmo <= 202020) %>%
   arrange(.,indname, yearmo)
@@ -606,7 +575,7 @@ Taking a look by industry type
 ```{r, message=FALSE}
 agg <- df %>% 
   group_by(yearmo, indname) %>% 
-  summarise(employed_count = sum(as.numeric(is_employed))) %>% 
+  summarise(employed_count = sum(as.numeric(Employment))) %>% 
   filter(yearmo >= 201950) %>% 
   filter(yearmo <= 202020) %>%
   arrange(., yearmo)
@@ -629,7 +598,7 @@ _Construction though also has a very small sample size, so a small change in the
 ```{r, message=FALSE}
 agg <- df %>% 
   group_by(yearmo,Age_broad) %>% 
-  summarise(employed_count = sum(as.numeric(is_employed))) %>% 
+  summarise(employed_count = sum(as.numeric(Employment))) %>% 
   filter(yearmo >= 201950) %>% 
   filter(yearmo <= 202020) %>%
   arrange(.,Age_broad, yearmo)
@@ -642,7 +611,7 @@ ggplot(data=agg, aes(y = employed_count, x = yearmo))+
 ```{r, message=FALSE}
 agg <- df %>% 
   group_by(yearmo, Age_broad) %>% 
-  summarise(employed_count = sum(as.numeric(is_employed))) %>%
+  summarise(employed_count = sum(as.numeric(Employment))) %>%
   filter(yearmo >= 201950) %>% 
   filter(yearmo <= 202020) %>%
   arrange(., yearmo)
@@ -663,7 +632,7 @@ $Note:$ After looking at the age groups graphs by count and %  we can see that t
 ```{r, message=FALSE}
 agg <- df %>% 
   group_by(yearmo,SEX) %>% 
-  summarise(employed_count = sum(as.numeric(is_employed))) %>% 
+  summarise(employed_count = sum(as.numeric(Employment))) %>% 
   filter(yearmo >= 201950) %>% 
   filter(yearmo <= 202020) %>%
   arrange(.,SEX, yearmo)
@@ -676,7 +645,7 @@ ggplot(data=agg, aes(y = employed_count, x = yearmo))+
 ```{r, message=FALSE}
 agg <- df %>% 
   group_by(yearmo, SEX) %>% 
-  summarise(employed_count = sum(as.numeric(is_employed))) %>%
+  summarise(employed_count = sum(as.numeric(Employment))) %>%
   filter(yearmo >= 201950) %>% 
   filter(yearmo <= 202020) %>%
   arrange(., yearmo)
@@ -697,7 +666,7 @@ $Note:$ Employment change across sex is also correlated to each other indicating
 ```{r, message=FALSE}
 agg <- df %>% 
   group_by(yearmo, MARST) %>% 
-  summarise(employed_count = sum(as.numeric(is_employed))) %>% 
+  summarise(employed_count = sum(as.numeric(Employment))) %>% 
   filter(yearmo >= 201950) %>% 
   filter(yearmo <= 202020) %>%
   arrange(.,MARST, yearmo)
@@ -710,7 +679,7 @@ ggplot(data=agg, aes(y = employed_count, x = yearmo))+
 ```{r, message=FALSE}
 agg <- df %>% 
   group_by(yearmo, MARST) %>% 
-  summarise(employed_count = sum(as.numeric(is_employed))) %>%
+  summarise(employed_count = sum(as.numeric(Employment))) %>%
   filter(yearmo >= 201950) %>% 
   filter(yearmo <= 202020) %>%
   arrange(., yearmo)
@@ -734,7 +703,7 @@ Based on the SEX, AGE graphical relationship we can see that they move in sync, 
 ### _binary effects (no interaction term)_
 The below models show simple linear models with factor variables. This model does _NOT_ look at pre and post Covid differences, it is simply looking at the factor's coefficients on employment as it applies to both pre and post Covid.
 ```{r}
-lpm1 <- feols(is_employed ~ factor(RACE) + factor(SEX) + factor(Age_broad) + factor(MARST) + factor(Education), 
+lpm1 <- feols(Employment ~ factor(RACE) + factor(SEX) + factor(Age_broad) + factor(MARST) + factor(Education), 
               data = df, se='hetero')
 etable(lpm1, digits = 3)
 ```
@@ -785,8 +754,8 @@ $Note:$ Fairly constant predictive value across marital status but notice that "
 ### Modeling with interaction term
 Creates dummy education variable
 ```{r}
-lpm3 <- feols(is_employed ~ is_post + Education, data = df, se='hetero')
-lpm4 <- feols(is_employed ~  is_post + Education + is_post:Education, data = df, se='hetero')
+lpm3 <- feols(Employment ~ post_covid + Education, data = df, se='hetero')
+lpm4 <- feols(Employment ~  post_covid + Education + post_covid:Education, data = df, se='hetero')
 etable(lpm3,lpm4)
 ```
 
@@ -794,7 +763,7 @@ _Interpretation lpm3_
 
 We have an intercept for our index variable at 0.9904 which is statistically significant.
 
-- is_postTRUE = -0.0438 indicating that the over all effect of covid had a -4.38 percentage point impact on employment.
+- post_covidTRUE = -0.0438 indicating that the over all effect of covid had a -4.38 percentage point impact on employment.
 
 - doctor = 0.0254 indicating that the over all effect of having a doctorate has a 2.54 percentage point impact on employment relative to bachelors degree.
 
@@ -804,7 +773,7 @@ $Note:$ All of which are statistically significant at the 0.01% level
 
 _Interpretation lpm4_
 
-This model looks at the interaction term between education and is_post covid. 
+This model looks at the interaction term between education and post_covid covid. 
 
 - The effect of being a doctor vs having a bachelors post covid is  0.0167 indicating that there is a positive 4.5 percentage point increase associated with being a doctor post covid relative to a bachelors.(this is statistically significant at the 0.01% level). This same effect pre-Covid was 0.0045 or 0.45% percentage points. This results in a Covid effect of 0.04 increase in employment. 
 
@@ -813,7 +782,7 @@ This model looks at the interaction term between education and is_post covid.
 
 ### _RACE_
 ```{r}
-lpm10 <- feols(is_employed ~ is_post + RACE + is_post:RACE, data = df, se='hetero')
+lpm10 <- feols(Employment ~ post_covid + RACE + post_covid:RACE, data = df, se='hetero')
 etable(lpm10)
 ```
 
@@ -837,8 +806,8 @@ $Note:$ Covid has a stronger effect on these races than white, also not that nat
 
 ### _Matital Status_
 ```{r}
-lpm11 <- feols(is_employed ~ is_post + MARST, data = df, se='hetero')
-lpm12 <- feols(is_employed ~ MARST + is_post + is_post:MARST, data = df, se='hetero')
+lpm11 <- feols(Employment ~ post_covid + MARST, data = df, se='hetero')
+lpm12 <- feols(Employment ~ MARST + post_covid + post_covid:MARST, data = df, se='hetero')
 etable(lpm11,lpm12)
 ```
 
