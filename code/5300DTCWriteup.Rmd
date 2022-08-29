@@ -44,6 +44,7 @@ emp_data$MARST <- as.character(df$MARST) #Convert MARST into character type
 emp_data <- emp_data %>% 
   drop_na(IND1990) %>%
   filter(YEAR>=2019 & YEAR <= 2021 & IND1990 > 000 & IND1990 < 940) %>%
+  filter(LABFORCE == 2) %>%
   mutate(Employment = case_when(
     EMPSTAT == 10 | EMPSTAT == 12 ~ 1,
     TRUE ~ 0
@@ -122,9 +123,6 @@ emp_data <- emp_data %>%
                                             OCC1990 == 905 ~ 'MILITARY OCCUPATIONS', TRUE ~ 'NA'))
   
 
-
-#Filter out whoever is not in the laborforce
-df <- df %>% filter(LABFORCE == 2) 
 ```
 
 ## Aggregations
@@ -401,20 +399,12 @@ specific differences is of interest.
 
 ##Question Three - Changes in employment and consumer spending post-lockdown
 
-
-First, a final variable, `Employment`, was added. which classifies EMPSTAT in (10, 12) as `employed` and EMPSTAT in (21,22) as `Unemployed`, and changed pre post to a bool value. Covid status was also changed to a `bool` value. 
-```{r}
-
-df$post_covid <- (df$COVIDSTATUS == 'post-covid')
-```
-
-
 ## High Level Frequency stats
 Next, frequency stats were added to view the dispersion of our binary dependent variable. As per the table, majority class across the board is employed, and thus there was no large differences in employment among demographic traits, martial status, or industry that was clearly visible.
 
 Because the following factor variables will be used as dummy variables down stream, other variables were removed from the analysis (i.e. to avoid making a dummy variable where a single person is employed in a niche market as this adds more features with little importance). 
 ```{r}
-ggplot(df, aes(x= RACE, color = factor(Employment))) + geom_bar() + 
+ggplot(emp_data, aes(x= RACE, color = factor(Employment))) + geom_bar() + 
   ggtitle("Count of Employment per Race") +
   xlab("Race")
 ```
@@ -424,17 +414,17 @@ $Note:$ Looking at break out by race, there are some counts that could add noise
 $Note:$ Filtering data for just our top ten most populated RACE categories.  
 
 ```{r, echo=TRUE}
-df %>% 
+emp_data %>% 
   group_by(RACE) %>% 
   summarise(rec_count = n()) %>% 
   arrange(., desc(rec_count))
-df <- df %>% 
+emp_racedf <- emp_data %>% 
   filter(RACE == c(100,200,300,651,802,652,801,803,805,804))
 ```
 Looking at employment by industry
 ```{r}
 
-ggplot(df, aes(x= indname, color = factor(Employment))) + geom_bar() + 
+ggplot(emp_racedf, aes(x= indname, color = factor(Employment))) + geom_bar() + 
   ggtitle("Count of Employment per Industry") +
   theme(axis.text.x = element_text(angle = 90
                                    )) + 
@@ -445,14 +435,14 @@ ggplot(df, aes(x= indname, color = factor(Employment))) + geom_bar() +
 $Note:$: As Construction sector had very few employees, it was removed from further analysis to reduce noise
 
 ```{r}
-ggplot(df, aes(x= Age_broad, color = factor(Employment))) + geom_bar() +
+ggplot(emp_racedf, aes(x= Age_broad, color = factor(Employment))) + geom_bar() +
   ggtitle("Employment per Age Group") +
   xlab("Age Group")
 ```
 
 $Note:$: Age shows no large discrepancies, with employment. 
 ```{r}
-ggplot(df, aes(x= SEX, color = factor(Employment))) + geom_bar() +
+ggplot(emp_racedf, aes(x= SEX, color = factor(Employment))) + geom_bar() +
   ggtitle("Employment per Gender") +
   xlab("Gender")
 ```
@@ -460,7 +450,7 @@ ggplot(df, aes(x= SEX, color = factor(Employment))) + geom_bar() +
 $Note:$: Sex shows no large discrepancies with employment.
 
 ```{r}
-ggplot(df, aes(x= MARST, color = factor(Employment))) + geom_bar() +
+ggplot(emp_racedf, aes(x= MARST, color = factor(Employment))) + geom_bar() +
   ggtitle("Employment per Marital Status") +
   xlab("Marital Status")
 ```
@@ -473,7 +463,7 @@ While the above analysis looks at pre and post Covid together the next part exam
 ### _Drop in total employment_
 
 ```{r}
-agg <- df %>% 
+agg <- emp_racedf %>% 
   group_by(yearmo) %>% 
   summarise(employed_count = sum(as.numeric(Employment))) %>% 
   arrange(., yearmo)
@@ -489,7 +479,7 @@ $Note:$ The large fall right after the start of Covid was followed by a large up
 Do to the volatility and scale I also want to look at the employment variation as % changes to capture a more normalized metric. 
 ### _By percentage change to normalize the change_
 ```{r, warning=FALSE}
-agg <- df %>% 
+agg <- emp_racedf %>% 
   group_by(yearmo) %>% 
   summarise(employed_count = sum(as.numeric(Employment))) %>% 
   arrange(., yearmo)
@@ -512,7 +502,7 @@ In this section, employment numbers and the % change in employment fluctuations 
 ### _Drop by Race_
 
 ```{r, message=FALSE}
-agg <- df %>% 
+agg <- emp_racedf %>% 
   group_by(yearmo, RACE) %>% 
   summarise(employed_count = sum(as.numeric(Employment))) %>% 
   filter(yearmo >= 201950) %>% 
@@ -532,7 +522,7 @@ To examine this in more detail the % change overtime by race is further explored
 
 ### _% Drop by RACE_
 ```{r, echo= FALSE, message= FALSE, warning=FALSE}
-agg <- df %>% 
+agg <- emp_racedf %>% 
   group_by(yearmo, RACE) %>% 
   summarise(employed_count = sum(as.numeric(Employment))) %>% 
   # filter(RACE == c(100,200,300,651,652)) %>% 
@@ -556,7 +546,7 @@ $Note:$ While some races stay relatively steady and correlated to each other, ot
 
 ### _Drop by indname_
 ```{r, message=FALSE}
-agg <- df %>% 
+agg <- emp_racedf %>% 
   group_by(yearmo, indname) %>% 
   summarise(employed_count = sum(as.numeric(Employment))) %>% 
   filter(yearmo >= 201950) %>% 
@@ -573,7 +563,7 @@ $Note:$ That NA takes a majority representation in our data set and construction
 ### _% Drop by indname_
 Taking a look by industry type
 ```{r, message=FALSE}
-agg <- df %>% 
+agg <- emp_racedf %>% 
   group_by(yearmo, indname) %>% 
   summarise(employed_count = sum(as.numeric(Employment))) %>% 
   filter(yearmo >= 201950) %>% 
@@ -596,7 +586,7 @@ _Construction though also has a very small sample size, so a small change in the
 
 ### _Drop by age group_
 ```{r, message=FALSE}
-agg <- df %>% 
+agg <- emp_racedf %>% 
   group_by(yearmo,Age_broad) %>% 
   summarise(employed_count = sum(as.numeric(Employment))) %>% 
   filter(yearmo >= 201950) %>% 
@@ -609,7 +599,7 @@ ggplot(data=agg, aes(y = employed_count, x = yearmo))+
 ```
 ### _% Drop by age group_
 ```{r, message=FALSE}
-agg <- df %>% 
+agg <- emp_racedf %>% 
   group_by(yearmo, Age_broad) %>% 
   summarise(employed_count = sum(as.numeric(Employment))) %>%
   filter(yearmo >= 201950) %>% 
@@ -630,7 +620,7 @@ $Note:$ After looking at the age groups graphs by count and %  we can see that t
 
 ### _Drop by sex_
 ```{r, message=FALSE}
-agg <- df %>% 
+agg <- emp_racedf %>% 
   group_by(yearmo,SEX) %>% 
   summarise(employed_count = sum(as.numeric(Employment))) %>% 
   filter(yearmo >= 201950) %>% 
@@ -643,7 +633,7 @@ ggplot(data=agg, aes(y = employed_count, x = yearmo))+
 ```  
 # _% Drop by sex_
 ```{r, message=FALSE}
-agg <- df %>% 
+agg <- emp_racedf %>% 
   group_by(yearmo, SEX) %>% 
   summarise(employed_count = sum(as.numeric(Employment))) %>%
   filter(yearmo >= 201950) %>% 
@@ -664,7 +654,7 @@ $Note:$ Employment change across sex is also correlated to each other indicating
 
 ### _ Drop by marital status_
 ```{r, message=FALSE}
-agg <- df %>% 
+agg <- emp_racedf %>% 
   group_by(yearmo, MARST) %>% 
   summarise(employed_count = sum(as.numeric(Employment))) %>% 
   filter(yearmo >= 201950) %>% 
@@ -677,7 +667,7 @@ ggplot(data=agg, aes(y = employed_count, x = yearmo))+
 ```
 ### _% Drop by marital status_
 ```{r, message=FALSE}
-agg <- df %>% 
+agg <- emp_racedf %>% 
   group_by(yearmo, MARST) %>% 
   summarise(employed_count = sum(as.numeric(Employment))) %>%
   filter(yearmo >= 201950) %>% 
@@ -704,7 +694,7 @@ Based on the SEX, AGE graphical relationship we can see that they move in sync, 
 The below models show simple linear models with factor variables. This model does _NOT_ look at pre and post Covid differences, it is simply looking at the factor's coefficients on employment as it applies to both pre and post Covid.
 ```{r}
 lpm1 <- feols(Employment ~ factor(RACE) + factor(SEX) + factor(Age_broad) + factor(MARST) + factor(Education), 
-              data = df, se='hetero')
+              data = emp_racedf, se='hetero')
 etable(lpm1, digits = 3)
 ```
 _Interpretation_:
@@ -718,9 +708,9 @@ _Interpretation_:
 ## Predicted values
 ### _RACE_
 ```{r}
-df <- df %>% 
+emp_racedf <- emp_racedf %>% 
   mutate(lpm_fitted = predict(lpm1))
-ggplot(data = df, mapping = aes(x=RACE, y=lpm_fitted))+
+ggplot(data = emp_racedf, mapping = aes(x=RACE, y=lpm_fitted))+
   geom_point()+
   geom_smooth(color = 'red', se=FALSE)+
   theme_bw()
@@ -730,7 +720,7 @@ $Note:$ This graph shows the predicted value for each race category for both pre
 
 ### _Education_
 ```{r}
-ggplot(data = df, mapping = aes(x=Education, y=lpm_fitted))+
+ggplot(data = emp_racedf, mapping = aes(x=Education, y=lpm_fitted))+
   geom_point()+
   geom_smooth(color = 'red', se=FALSE)+
   theme_bw()
@@ -740,7 +730,7 @@ $Note:$ A large difference in doctorate level but not a huge difference between 
 
 ### _MARST_
 ```{r}
-ggplot(data = df, mapping = aes(x=MARST, y=lpm_fitted))+
+ggplot(data = emp_racedf, mapping = aes(x=MARST, y=lpm_fitted))+
   geom_point()+
   geom_smooth(color = 'red', se=FALSE)+
   theme_bw()
@@ -754,8 +744,8 @@ $Note:$ Fairly constant predictive value across marital status but notice that "
 ### Modeling with interaction term
 Creates dummy education variable
 ```{r}
-lpm3 <- feols(Employment ~ post_covid + Education, data = df, se='hetero')
-lpm4 <- feols(Employment ~  post_covid + Education + post_covid:Education, data = df, se='hetero')
+lpm3 <- feols(Employment ~ post_covid + Education, data = emp_racedf, se='hetero')
+lpm4 <- feols(Employment ~  post_covid + Education + post_covid:Education, data = emp_racedf, se='hetero')
 etable(lpm3,lpm4)
 ```
 
@@ -782,7 +772,7 @@ This model looks at the interaction term between education and post_covid covid.
 
 ### _RACE_
 ```{r}
-lpm10 <- feols(Employment ~ post_covid + RACE + post_covid:RACE, data = df, se='hetero')
+lpm10 <- feols(Employment ~ post_covid + RACE + post_covid:RACE, data = emp_racedf, se='hetero')
 etable(lpm10)
 ```
 
@@ -806,8 +796,8 @@ $Note:$ Covid has a stronger effect on these races than white, also not that nat
 
 ### _Matital Status_
 ```{r}
-lpm11 <- feols(Employment ~ post_covid + MARST, data = df, se='hetero')
-lpm12 <- feols(Employment ~ MARST + post_covid + post_covid:MARST, data = df, se='hetero')
+lpm11 <- feols(Employment ~ post_covid + MARST, data = emp_racedf, se='hetero')
+lpm12 <- feols(Employment ~ MARST + post_covid + post_covid:MARST, data = emp_racedf, se='hetero')
 etable(lpm11,lpm12)
 ```
 
