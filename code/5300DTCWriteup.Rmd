@@ -212,7 +212,7 @@ q1_data %>% ggplot(aes(date, monthly_employment)) +
              linetype = "dashed"
   ) +
   xlab("Date (excludes March 2020)") +
-  ylab("Monthly Employment") +
+  ylab("Employment") +
 
   annotate(geom = "text",
            x = as.Date("2020-02-01") -50,
@@ -236,7 +236,9 @@ q1_data_month %>% ggplot(aes(x = month,
                              col = post_covid)) +
   geom_point() + 
   ggtitle("Monthly Employment Trends: April to December - 2019/2020") +
-  labs(col = "Lockdown")
+  labs(col = "Lockdown") +
+  xlab("Month") +
+  ylab("Employment")
 ```
 
 ```{r, warning=FALSE, message=FALSE}
