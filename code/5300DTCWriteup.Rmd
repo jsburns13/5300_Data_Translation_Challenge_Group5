@@ -13,7 +13,7 @@ knitr::opts_chunk$set(echo = TRUE)
 
 This section loads all required libraries
 
-```{r, warning=FALSE}
+```{r, warning=FALSE, message=FALSE}
 library(fixest)
 library(tidyverse)
 library(vtable)
@@ -29,7 +29,7 @@ library(margins)
 
 We pull all of our data from the IPUMS release of the Current Population Survey. We are interested in tracking employment impacts of the Covid Pandemic and therefore have pulled employment data from 2019 through 2021.
 
-```{r, warning=FALSE}
+```{r, warning=FALSE, message=FALSE}
 
 ddi <- read_ipums_ddi("../data/cps_00006.xml")
 emp_data <- read_ipums_micro(ddi)
@@ -127,7 +127,7 @@ emp_data <- emp_data %>%
 
 ## Aggregations
 
-```{r, warning=FALSE}
+```{r, warning=FALSE, message=FALSE}
 # Isolating retail
 data_retail <- emp_data %>%
   filter(Retail == 1)
@@ -197,7 +197,7 @@ df_unemployed_new_Occupation <- emp_data %>%  group_by(yearmo, Occupation) %>% s
 
 The first part of the analysis utilized employment data to explore the effect of Covid on the health of the retail industry. The sample consisted of individuals in the retail industry aged 25 to 65 who were classified as part of the labor force (employed or unemployed) during the span of April 2019 to March 2021. Individuals were assigned either a value of 1 or 0 depending on their employment status for each month. These values were then aggregated at the monthly grain to calculate total employment. As the Covid lockdown was staggered throughout March 2021, the month was removed from the analysis. A binary variable for the lockdown months (April 2020 to March 2021) was created as the treatment variable for the model.
 
-```{r, warning=FALSE}
+```{r, warning=FALSE, message=FALSE}
 #We roll up employment to the month level for analysis
 q1_data <- data_retail %>% group_by(date, post_covid) %>%
   summarize(monthly_employment = sum(Employment))
@@ -221,7 +221,7 @@ q1_data %>% ggplot(aes(date, monthly_employment)) +
            color = "orange")
 ```
 
-```{r, warning=FALSE}
+```{r, warning=FALSE, message=FALSE}
 q1_data_month <- q1_data %>%
   filter(month(date) > 2) %>%
   mutate(month = factor(month(date),levels = c(4:12)),
@@ -230,7 +230,7 @@ q1_data_month <- q1_data %>%
                                TRUE ~ "Pre"))
 ```
 
-```{r, warning=FALSE}
+```{r, warning=FALSE, message=FALSE}
 q1_data_month %>% ggplot(aes(x = month, 
                              y = monthly_employment,
                              col = post_covid)) +
@@ -239,7 +239,7 @@ q1_data_month %>% ggplot(aes(x = month,
   labs(col = "Lockdown")
 ```
 
-```{r, warning=FALSE}
+```{r, warning=FALSE, message=FALSE}
 
 q1_m1 <-  q1_data %>% feols(monthly_employment ~ post_covid)
 etable(q1_m1)
@@ -264,7 +264,7 @@ industries. Several data transformations were generated to compare:
 
 For reference, the average employment rates by industry are as follows:
 
-```{r, warning=FALSE}
+```{r, warning=FALSE, message=FALSE}
 
 # Aggregating monthly data and ensuring
 Q2_data_mo <- emp_data %>%
@@ -282,7 +282,7 @@ Q2_data_mo %>%
 A graph of each industry's employment rate over time shows differences across
 industries:
 
-```{r, warning=FALSE}
+```{r, warning=FALSE, message=FALSE}
 ggplot(data = Q2_data_mo, aes(x=date, y=Employment, colour=Industry, group=Industry)) +
   geom_point() + geom_line()
 ```
@@ -292,7 +292,7 @@ drastically more than the strongest and indeed was the third worst according to 
 
 Isolating Retail vs all other industries helps visualize this difference:
 
-```{r, warning=FALSE}
+```{r, warning=FALSE, message=FALSE}
 ggplot(data=data_ret_summ, aes(x=date, y=Employment, colour=Retail)) +
   geom_point() +
   geom_line() +
@@ -305,7 +305,7 @@ was greater both absolutely and proportionately.
 Next, rdplots were generated at first and second orders, for all industries and
 retail alone.
 
-```{r, warning=FALSE}
+```{r, warning=FALSE, message=FALSE}
 rdplot(Q2_data_mo$Employment, Q2_data_mo$weeks, c=0, p=1, h=24, kernel = "uniform",
        title = "Linear - All Industries", x.label = "Weeks Since March")
 
@@ -322,7 +322,7 @@ Several models were created to analyze the pandemic, starting with a fixed effec
 ols model regressing employment by date and pre/post pandemic, with fixed effects
 applied by Industry:
 
-```{r, warning=FALSE}
+```{r, warning=FALSE, message=FALSE}
 model_1 <- feols(Employment ~ weeks * post_covid | Industry, data=Q2_data_mo, vcov="hetero")
 etable(model_1)
 wald(model_1)
@@ -334,7 +334,7 @@ Noting that weeks was not individually statistically significant to the model,
 four more models were generated using both rdrobust and feols to compare different
 structures:
 
-```{r, warning=FALSE}
+```{r, warning=FALSE, message=FALSE}
 model_2 <- feols(Employment ~ weeks * post_covid | Retail, data=Q2_data_mo, se="hetero")
 model_2_rd_r <- rdrobust(data_retail$Employment, data_retail$weeks, c=0, p=2, h=25, kernel = "uniform")
 model_2_rd_nr <- rdrobust(data_non_retail$Employment, data_non_retail$weeks, c=0, p=2, h=25, kernel = "uniform")
@@ -343,7 +343,7 @@ model_3 <- feols(Employment ~ post_covid * Industry, data = Q2_data_mo, se="hete
 
 Comparing the three feols() models:
 
-```{r, warning=FALSE}
+```{r, warning=FALSE, message=FALSE}
 etable(model_1, model_2)
 etable(model_3)
 ```
@@ -355,7 +355,7 @@ in model_3.
 The rdrobust models allow for more targeted analysis of second order models, controlling
 for retail:
 
-```{r, warning=FALSE}
+```{r, warning=FALSE, message=FALSE}
 summary(model_2_rd_r, vcov="hetero")
 summary(model_2_rd_nr, vcov="hetero")
 ```
@@ -371,7 +371,7 @@ comparisons. Additional work could be conducted to precisely identify the signif
 of differences between pairs of industries, but the conclusion above was determined
 to sufficiently answer the research question at hand.
 
-```{r, warning=FALSE}
+```{r, warning=FALSE, message=FALSE}
 IndList <- split(Q2_data_mo, f=Q2_data_mo$Industry)
 model_list <- list()
 rdrobust_list <- list()
@@ -403,7 +403,7 @@ specific differences is of interest.
 Next, frequency stats were added to view the dispersion of our binary dependent variable. As per the table, majority class across the board is employed, and thus there was no large differences in employment among demographic traits, martial status, or industry that was clearly visible.
 
 Because the following factor variables will be used as dummy variables down stream, other variables were removed from the analysis (i.e. to avoid making a dummy variable where a single person is employed in a niche market as this adds more features with little importance). 
-```{r, warning=FALSE}
+```{r, warning=FALSE, message=FALSE}
 ggplot(emp_data, aes(x= RACE, color = factor(Employment))) + geom_bar() + 
   ggtitle("Count of Employment per Race") +
   xlab("Race")
@@ -413,7 +413,7 @@ $Note:$ Looking at break out by race, there are some counts that could add noise
 
 $Note:$ Filtering data for just our top ten most populated RACE categories.  
 
-```{r, echo=TRUE, warning=FALSE}
+```{r, echo=TRUE, warning=FALSE, message=FALSE}
 emp_data %>% 
   group_by(RACE) %>% 
   summarise(rec_count = n()) %>% 
@@ -422,7 +422,7 @@ emp_racedf <- emp_data %>%
   filter(RACE == c(100,200,300,651,802,652,801,803,805,804))
 ```
 Looking at employment by industry
-```{r, warning=FALSE}
+```{r, warning=FALSE, message=FALSE}
 
 ggplot(emp_racedf, aes(x= Industry, color = factor(Employment))) + geom_bar() + 
   ggtitle("Count of Employment per Industry") +
@@ -434,14 +434,14 @@ ggplot(emp_racedf, aes(x= Industry, color = factor(Employment))) + geom_bar() +
 
 $Note:$: As Construction sector had very few employees, it was removed from further analysis to reduce noise
 
-```{r, warning=FALSE}
+```{r, warning=FALSE, message=FALSE}
 ggplot(emp_racedf, aes(x= Age_broad, color = factor(Employment))) + geom_bar() +
   ggtitle("Employment per Age Group") +
   xlab("Age Group")
 ```
 
 $Note:$: Age shows no large discrepancies, with employment. 
-```{r, warning=FALSE}
+```{r, warning=FALSE, message=FALSE}
 ggplot(emp_racedf, aes(x= SEX, color = factor(Employment))) + geom_bar() +
   ggtitle("Employment per Gender") +
   xlab("Gender")
@@ -449,7 +449,7 @@ ggplot(emp_racedf, aes(x= SEX, color = factor(Employment))) + geom_bar() +
 
 $Note:$: Sex shows no large discrepancies with employment.
 
-```{r, warning=FALSE}
+```{r, warning=FALSE, message=FALSE}
 ggplot(emp_racedf, aes(x= MARST, color = factor(Employment))) + geom_bar() +
   ggtitle("Employment per Marital Status") +
   xlab("Marital Status")
@@ -462,7 +462,7 @@ While the above analysis looks at pre and post Covid together the next part exam
 
 ### _Drop in total employment_
 
-```{r, warning=FALSE}
+```{r, warning=FALSE, message=FALSE}
 agg <- emp_racedf %>% 
   group_by(yearmo) %>% 
   summarise(employed_count = sum(as.numeric(Employment))) %>% 
@@ -478,7 +478,7 @@ $Note:$ The large fall right after the start of Covid was followed by a large up
 
 Do to the volatility and scale I also want to look at the employment variation as % changes to capture a more normalized metric. 
 ### _By percentage change to normalize the change_
-```{r, warning=FALSE}
+```{r, warning=FALSE, message=FALSE}
 agg <- emp_racedf %>% 
   group_by(yearmo) %>% 
   summarise(employed_count = sum(as.numeric(Employment))) %>% 
@@ -501,7 +501,7 @@ In this section, employment numbers and the % change in employment fluctuations 
 
 ### _Drop by Race_
 
-```{r, message=FALSE}
+```{r, message=FALSE, warning = FALSE}
 agg <- emp_racedf %>% 
   group_by(yearmo, RACE) %>% 
   summarise(employed_count = sum(as.numeric(Employment))) %>% 
@@ -692,7 +692,7 @@ Based on the SEX, AGE graphical relationship we can see that they move in sync, 
 
 ### _binary effects (no interaction term)_
 The below models show simple linear models with factor variables. This model does _NOT_ look at pre and post Covid differences, it is simply looking at the factor's coefficients on employment as it applies to both pre and post Covid.
-```{r, warning=FALSE}
+```{r, warning=FALSE, message=FALSE}
 lpm1 <- feols(Employment ~ factor(RACE) + factor(SEX) + factor(Age_broad) + factor(MARST) + factor(Education), 
               data = emp_racedf, se='hetero')
 etable(lpm1, digits = 3)
@@ -707,7 +707,7 @@ _Interpretation_:
 
 ## Predicted values
 ### _RACE_
-```{r, warning=FALSE}
+```{r, warning=FALSE, message=FALSE}
 emp_racedf <- emp_racedf %>% 
   mutate(lpm_fitted = predict(lpm1))
 ggplot(data = emp_racedf, mapping = aes(x=RACE, y=lpm_fitted))+
@@ -719,7 +719,7 @@ ggplot(data = emp_racedf, mapping = aes(x=RACE, y=lpm_fitted))+
 $Note:$ This graph shows the predicted value for each race category for both pre and post covid. Notice that certain races are have a lower predicted likelihood for employment status.
 
 ### _Education_
-```{r, warning=FALSE}
+```{r, warning=FALSE, message=FALSE}
 ggplot(data = emp_racedf, mapping = aes(x=Education, y=lpm_fitted))+
   geom_point()+
   geom_smooth(color = 'red', se=FALSE)+
@@ -729,7 +729,7 @@ ggplot(data = emp_racedf, mapping = aes(x=Education, y=lpm_fitted))+
 $Note:$ A large difference in doctorate level but not a huge difference between high school and undergrad in terms of predicted employment status.
 
 ### _MARST_
-```{r, warning=FALSE}
+```{r, warning=FALSE, message=FALSE}
 ggplot(data = emp_racedf, mapping = aes(x=MARST, y=lpm_fitted))+
   geom_point()+
   geom_smooth(color = 'red', se=FALSE)+
@@ -743,7 +743,7 @@ $Note:$ Fairly constant predictive value across marital status but notice that "
 
 ### Modeling with interaction term
 Creates dummy education variable
-```{r, warning=FALSE}
+```{r, warning=FALSE, message=FALSE}
 lpm3 <- feols(Employment ~ post_covid + Education, data = emp_racedf, se='hetero')
 lpm4 <- feols(Employment ~  post_covid + Education + post_covid:Education, data = emp_racedf, se='hetero')
 etable(lpm3,lpm4)
@@ -771,7 +771,7 @@ This model looks at the interaction term between education and post_covid covid.
 
 
 ### _RACE_
-```{r, warning=FALSE}
+```{r, warning=FALSE, message=FALSE}
 lpm10 <- feols(Employment ~ post_covid + RACE + post_covid:RACE, data = emp_racedf, se='hetero')
 etable(lpm10)
 ```
@@ -795,7 +795,7 @@ $Note:$ Covid has a stronger effect on these races than white, also not that nat
 
 
 ### _Matital Status_
-```{r, warning=FALSE}
+```{r, warning=FALSE, message=FALSE}
 lpm11 <- feols(Employment ~ post_covid + MARST, data = emp_racedf, se='hetero')
 lpm12 <- feols(Employment ~ MARST + post_covid + post_covid:MARST, data = emp_racedf, se='hetero')
 etable(lpm11,lpm12)
