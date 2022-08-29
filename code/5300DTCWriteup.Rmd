@@ -247,7 +247,7 @@ etable(q1_m1)
 
 The retail industry saw a drop in monthly employment of 1,408 people post-lockdown, a decrease of 22%. This was statistically significant at an alpha of 0.001. Thus, based on the model, there is strong evidence that the lockdown had a negative impact on the health of the retail industry. 
 
-This conclusion is contingent on the assumption that the drop was due to the lockdown and not other factors. While retail employment was trending downwards in the months leading up to the lockdown, this assumption is backed up in the "Retail Employment" graph which shows a steep decline in employment following the lockdown measures in March 2020. Additionally, employment then proceeds to climb upwards as stores reopened in the months following. The "Monthly Employment Trends" graph further supports this assumption, as after lockdown restrictions eased up throughout the summer of 2020, September to December have similar trends compared to the same span in the previous year.
+This conclusion is contingent on the assumption that the drop was due to the lockdown and not other factors. While retail employment was trending downwards in the months leading up to the lockdown, this assumption is backed up in the "Retail Employment" graph which shows a steep decline in employment following the lockdown measures in March 2020. Additionally, employment then proceeds to climb upwards as stores reopened in the months following. The "Monthly Employment Trends" graph further supports this assumption, as after lockdown restrictions eased up throughout the summer of 2020, September to November have similar trends compared to the same span in the previous year.
 
 ##Question Two - Covid Impact on Retail vs Other Organizations
 
